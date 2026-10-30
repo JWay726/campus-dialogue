@@ -26,9 +26,8 @@
 - [十、数据模型](#十数据模型)
 - [十一、测试](#十一测试)
 - [十二、部署](#十二部署)
-- [十三、学习文档](#十三学习文档)
-- [十四、常见问题](#十四常见问题)
-- [十五、扩展方向](#十五扩展方向)
+- [十三、常见问题](#十三常见问题)
+- [十四、扩展方向](#十四扩展方向)
 
 ---
 
@@ -161,9 +160,6 @@ campus-dialogue/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── db/init.sql                       # 容器首次启动建库
-├── docs/                             # 学习与答辩文档
-│   ├── SpringBoot知识点总结.md
-│   └── 前后端答辩总结.md
 └── src
     ├── main/java/com/campus/dialogue
     │   ├── CampusDialogueApplication.java   # 启动类（关闭 DNS 负缓存 + 种子数据初始化）
@@ -568,18 +564,7 @@ docker compose up -d
 
 ---
 
-## 十三、学习文档
-
-仓库 `docs/` 下有两份配套笔记，按需取用：
-
-| 文档 | 内容 |
-|---|---|
-| [`docs/SpringBoot知识点总结.md`](docs/SpringBoot知识点总结.md) | 本项目用到的**全部 Spring Boot 知识点**：自动装配、配置绑定、WebFlux vs MVC、响应式流、JPA、Flyway、Spring Security 全流程、测试、部署 |
-| [`docs/前后端答辩总结.md`](docs/前后端答辩总结.md) | **验机答辩问答体**：老师常问的问题 + 可直接照讲的回答，前端侧重流式渲染与原生 JS，后端侧重 Spring Boot |
-
----
-
-## 十四、常见问题
+## 十三、常见问题
 
 <details>
 <summary><b>启动报 <code>Schema-validation: missing table</code></b></summary>
@@ -624,7 +609,7 @@ Windows 下正在运行的 jar 会锁文件，先停掉进程再 `mvn package`�
 
 ---
 
-## 十五、扩展方向
+## 十四、扩展方向
 
 - **向量库**：数据量上来后换 Chroma / Milvus / pgvector，避免全量内存计算
 - **缓存**：Redis 存会话与热点问答，配合 Spring Session 支持多实例

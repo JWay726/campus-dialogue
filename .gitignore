@@ -4,6 +4,9 @@ target/
 *.log
 .DS_Store
 
+# 本地学习笔记 / 答辩材料，不随仓库发布
+docs/
+
 # 本地私密配置：数据库密码 / 模型 Key / 种子管理员密码
 # 模板见 application-local.yml.example，模板本身需要提交
 src/main/resources/application-local.yml
