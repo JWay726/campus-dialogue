@@ -29,10 +29,18 @@ public class UserEntity {
     @Column(name = "student_no", unique = true, length = 32)
     private String studentNo;
 
-    /** 微信 openid：唯一标识，不外泄（接口仅返回「是否已绑定」）。 */
+    /** 微信 openid：本应用内唯一，不外泄（接口仅返回「是否已绑定」）。 */
     @JsonIgnore
     @Column(name = "wechat_openid", length = 64)
     private String wechatOpenid;
+
+    /**
+     * 微信 unionid：同一开放平台账号下唯一，跨应用不变，优先用它定位账号。
+     * 开放平台未绑定或用户未关注时微信不返回，此时为 null。
+     */
+    @JsonIgnore
+    @Column(name = "wechat_unionid", length = 64)
+    private String wechatUnionid;
 
     @Column(name = "wechat_nickname", length = 64)
     private String wechatNickname;
@@ -63,6 +71,9 @@ public class UserEntity {
 
     public String getWechatOpenid() { return wechatOpenid; }
     public void setWechatOpenid(String wechatOpenid) { this.wechatOpenid = wechatOpenid; }
+
+    public String getWechatUnionid() { return wechatUnionid; }
+    public void setWechatUnionid(String wechatUnionid) { this.wechatUnionid = wechatUnionid; }
 
     public String getWechatNickname() { return wechatNickname; }
     public void setWechatNickname(String wechatNickname) { this.wechatNickname = wechatNickname; }

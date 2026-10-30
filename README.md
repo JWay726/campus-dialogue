@@ -46,7 +46,7 @@
 整体是一个 **Spring Boot 单体的响应式应用**：WebFlux 处理并发流式请求，JPA 负责持久化，
 Flyway 管理表结构，Spring Security 负责全站登录与角色授权。
 
-> 工程规模：**40 个 Java 源文件 / 约 3200 行后端代码 / 17 个前端文件 / 20 个单元测试**，
+> 工程规模：**40 个 Java 源文件 / 约 3300 行后端代码 / 17 个前端文件 / 28 个单元测试**，
 > 全部手写，无脚手架生成代码，适合作为课程设计、毕业设计或 Spring Boot 学习样本。
 
 ---
@@ -61,7 +61,7 @@ Flyway 管理表结构，Spring Security 负责全站登录与角色授权。
 | **上下文控制** | 按**字符预算**从最近消息向前裁剪，防止超出模型上下文窗口 |
 | **知识库管理** | 运行时录入文本、上传 `.md/.txt` 批量入库、全量重建索引、文档级去重（仅 ADMIN） |
 | **账号体系** | 开放注册、表单登录、登出、角色（ADMIN / USER）、个人中心（学号 / 微信绑定 / 改密） |
-| **微信扫码登录** | 未绑定自动注册；未配置 app-id 时进入演示模式，便于本地联调 |
+| **微信扫码登录** | 完整 OAuth2 授权码链路（openid + unionid 双标识、`state` 防 CSRF）；未配置凭据时自动降级为**演示模式**，本地可把流程跑通 |
 | **容灾降级** | LLM 主通道 402 欠费 / 429 限流 / DNS 失败 / 超时 → **自动切备用通道**，前端无感 |
 | **并发保护** | 向量化批量并发 + LLM 流式调用**信号量限流**，避免触发模型服务 429 |
 
@@ -78,7 +78,7 @@ Flyway 管理表结构，Spring Security 负责全站登录与角色授权。
 | Spring Security | 6.4.x | 全站登录、Session 管理、角色授权 |
 | Spring Data JPA | 3.4.x | 实体映射与仓储（Hibernate 实现） |
 | MySQL | 8.0+ | 业务数据 + 向量数据（JSON 存储） |
-| Flyway | 11.3.0 | 数据库版本化迁移（`V1~V4`） |
+| Flyway | 11.3.0 | 数据库版本化迁移（`V1~V5`） |
 | WebClient | Reactor Netty | 调用 DeepSeek / SiliconFlow / 微信开放平台 |
 | JUnit 5 + Mockito | - | 单元测试 |
 
@@ -198,7 +198,7 @@ campus-dialogue/
         ├── application-local.yml.example   # 本地私密配置模板（真实文件不入库）
         ├── application-dev.yml             # 开发：打印 SQL、静态资源直读
         ├── application-prod.yml            # 生产：关闭 SQL 日志
-        ├── db/migration/V1~V4              # Flyway 迁移脚本
+        ├── db/migration/V1~V5              # Flyway 迁移脚本
         ├── campus-docs/                    # 首次启动自动入库的校园资料（10 篇）
         └── static/                         # 登录/对话/后台/个人中心页面
 ```
@@ -226,7 +226,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, REFERENCES, INDEX, ALTER
 FLUSH PRIVILEGES;
 ```
 
-> 表结构不用手工建：首次启动时 **Flyway** 会自动执行 `db/migration/V1~V4`。
+> 表结构不用手工建：首次启动时 **Flyway** 会自动执行 `db/migration/V1~V5`。
 
 ### 3. 配置密钥
 
@@ -337,6 +337,13 @@ campus:
     window-size: 10           # 兜底：最近消息条数上限
     max-chars: 4000           # 上下文字符预算（主策略）
 
+  wechat:                     # 微信开放平台「网站应用」
+    app-id: ${WECHAT_APP_ID:}         # 留空 = 演示模式
+    app-secret: ${WECHAT_APP_SECRET:}
+    redirect-uri: ${WECHAT_REDIRECT_URI:http://localhost:8088/profile.html}
+    login-redirect-uri: ${WECHAT_LOGIN_REDIRECT_URI:http://localhost:8088/login.html}
+    scope: snsapi_login               # 网站应用扫码固定 snsapi_login
+
 server:
   reactive:
     session:
@@ -417,6 +424,38 @@ server:
 - `memory.max-chars`（主）：从最近一条往前累加字符数，超过 4000 就停 —— 控制 token 消耗；
 - `memory.window-size`（兜底）：无论多短，最多 10 条 —— 防止极短消息把上下文拉得过长。
 
+### 6. 微信扫码登录（OAuth2 授权码模式）
+
+```
+① 前端 GET /api/auth/wechat/authorize-url
+      后端生成一次性 state → 存进当前 WebSession → 返回带 state 的 qrconnect 地址
+② 前端跳转该地址，用户手机扫码确认
+③ 微信回跳 login.html?code=xxx&state=yyy
+④ 前端 POST /api/auth/wechat/login { code, state }
+      后端先从会话取出 state 比对（比对完立即删除），再拿 code 换身份
+⑤ POST https://api.weixin.qq.com/sns/oauth2/access_token  → openid + unionid + access_token
+⑥ GET  https://api.weixin.qq.com/sns/userinfo             → 昵称（失败降级为「微信用户」）
+⑦ 有账号则登录、无则自动注册 USER，最后把 SecurityContext 写进 WebSession
+```
+
+四个容易踩的点，本项目都处理了：
+
+| 点 | 处理方式 |
+|---|---|
+| **CSRF** | `state` 用 `SecureRandom` 生成 32 位十六进制，存服务端会话，回调比对后**立即删除**（一次性）。不校验的话，攻击者能把自己的 code 塞进你的回调，让你登进他的账号 |
+| **openid vs unionid** | openid 是**应用级**唯一（换 AppID 就变），unionid 是**开放平台账号级**唯一（跨应用不变）。登录时 **unionid 优先、openid 兜底**；未绑定开放平台时微信不返回 unionid，字段为 null，不影响登录 |
+| **重复绑定** | 服务层校验「该微信是否已属于其他账号」；数据库再加 `openid`/`unionid` 唯一索引兜住并发竞态 |
+| **错误可读** | `40029` code 无效、`40163` code 已使用、`40013` AppID 无效、`40125` AppSecret 无效、`41008` 缺 code、`40222` 频繁，全部翻译成中文并保留 `errcode` 便于排查 |
+
+**演示模式**：`WECHAT_APP_ID`/`WECHAT_APP_SECRET` 为空时，`isConfigured()` 返回 false，
+`exchangeCode()` 不访问微信服务器而是用 code 派生一个稳定的假 openid，
+让「绑定 → 展示 → 解绑」整条链路在本地可以完整演示；前端会明确提示"当前为演示绑定"。
+填上真实凭据后**自动切换到真实接口，前端无感**。
+
+> 真实接入的前置条件（微信官方限制，非代码问题）：开放平台账号需**企业/组织主体**并通过
+> 开发者资质认证（300 元审核费），再创建「网站应用」，且**授权回调域必须是已 ICP 备案的域名**
+> —— 不接受 IP 和 localhost。因此个人主体账号无法完成真实扫码验证。
+
 ---
 
 ## 九、接口文档
@@ -473,14 +512,14 @@ event: done      data: {"ok":true}
 | POST | `/api/auth/register` | 开放注册（默认 USER） |
 | GET | `/api/auth/me` | 当前用户与角色（401 = 未登录） |
 | POST | `/api/auth/logout` | 登出（框架销毁会话） |
-| GET | `/api/auth/wechat/authorize-url` | 微信扫码授权地址 |
-| POST | `/api/auth/wechat/login` | 微信登录（已绑定则登录，否则自动注册） |
+| GET | `/api/auth/wechat/authorize-url` | 微信扫码授权地址（配置凭据时附带一次性 `state`；未配置返回 `demo=true`） |
+| POST | `/api/auth/wechat/login` | 微信登录，body `{code, state}`（已绑定则登录，否则自动注册） |
 | GET / POST / DELETE | `/api/admin/users...` | 用户管理（ADMIN） |
 | GET | `/api/me` | 个人资料 |
 | PUT | `/api/me/student-no` | 绑定 / 解绑学号 |
 | POST | `/api/me/password` | 修改密码 |
 | GET | `/api/me/wechat/authorize-url` | 微信绑定授权地址 |
-| POST | `/api/me/wechat/bind` · `/unbind` | 绑定 / 解绑微信 |
+| POST | `/api/me/wechat/bind` · `/unbind` | 绑定 / 解绑微信（绑定同样校验 `state`） |
 
 ---
 
@@ -492,12 +531,16 @@ event: done      data: {"ok":true}
 | `messages` | `id, session_id, role, content, ts` | 消息（用 `ts` 规避 MySQL 保留字 `TIMESTAMP`） |
 | `documents` | `id, title, content, source, created_at, updated_at` | 知识库文档 |
 | `vectors` | `id, doc_id, chunk_text, embedding` | 片段与向量（`chunk_text` 规避保留字 `TEXT`） |
-| `users` | `id, username, password_hash, role, student_no, wechat_openid, ...` | 账号与个人资料 |
+| `users` | `id, username, password_hash, role, student_no, wechat_openid, wechat_unionid, ...` | 账号与个人资料 |
 | `flyway_schema_history` | `version, description, success` | Flyway 迁移记录 |
 
-**表结构统一由 Flyway 管理**：`V1__init_schema` → `V2__users` → `V3__user_profile` → `V4__sessions_username`。
+**表结构统一由 Flyway 管理**：`V1__init_schema` → `V2__users` → `V3__user_profile` → `V4__sessions_username` → `V5__wechat_unionid_and_unique`。
 Hibernate 只做 `ddl-auto: validate` 校验，**不自动建表/改表**。
-新增字段的正确流程是「新增一个 `V5__xxx.sql`」，而不是把 `validate` 改回 `update`。
+新增字段的正确流程是「新增一个 `V6__xxx.sql`」，而不是把 `validate` 改回 `update`。
+
+**唯一约束（V5）**：`wechat_openid` 与 `wechat_unionid` 各建唯一索引。
+服务层已有占用校验，唯一索引用于**兜住并发扫码的竞态**（两个账号同时绑同一个微信）。
+MySQL 唯一索引允许多个 NULL，所以未绑定微信的账号不受影响。
 
 ---
 
@@ -507,16 +550,18 @@ Hibernate 只做 `ddl-auto: validate` 校验，**不自动建表/改表**。
 mvn test
 ```
 
-JUnit 5 + Mockito，共 **20 个用例**：
+JUnit 5 + Mockito，共 **28 个用例**：
 
-| 测试类 | 覆盖点 |
-|---|---|
-| `VectorStoreTest` | 向量增删查、余弦相似度计算 |
-| `RetrievalServiceTest` | Top-K 排序、阈值过滤、未命中降级 |
-| `MemoryServiceTest` | 字符预算裁剪、窗口兜底 |
-| `SessionServiceTest` | 会话按 username 隔离、越权 404、删除消息 |
-| `CampusPasswordEncoderTest` | 哈希生成与校验、盐随机性 |
-| `CampusUserDetailsServiceTest` | 用户加载、角色映射、不存在返回空 |
+| 测试类 | 用例 | 覆盖点 |
+|---|---|---|
+| `VectorStoreTest` | 2 | 向量增删查、余弦相似度计算 |
+| `RetrievalServiceTest` | 3 | Top-K 排序、阈值过滤、未命中降级 |
+| `MemoryServiceTest` | 2 | 字符预算裁剪、窗口兜底 |
+| `SessionServiceTest` | 6 | 会话按 username 隔离、越权 404、删除消息 |
+| `CampusPasswordEncoderTest` | 4 | 哈希生成与校验、盐随机性 |
+| `CampusUserDetailsServiceTest` | 3 | 用户加载、角色映射、不存在返回空 |
+| `WechatServiceTest` | 3 | 微信错误码中文翻译、`state` 随机性 |
+| `UserServiceWechatTest` | 5 | unionid 优先 / openid 兜底、自动注册、重复绑定拒绝、解绑清理 |
 
 > JDK 17+ 下 Mockito inline 需要开放 `java.base` 模块，已在 `pom.xml` 的 surefire `argLine` 配好 `--add-opens`。
 > JDK 25 下无法 mock 具体类，因此测试里用**手写 fake 子类**代替 `mock(具体类)`。
@@ -559,6 +604,8 @@ docker compose up -d
 - [ ] `LLM_API_KEY` / `EMBEDDING_API_KEY` 用环境变量注入
 - [ ] 数据库账号只授权本项目库
 - [ ] 对外 HTTPS（微信回调要求），并同步改 `WECHAT_REDIRECT_URI`
+- [ ] 接入真实微信登录需：开放平台「网站应用」的 `WECHAT_APP_ID` / `WECHAT_APP_SECRET`，
+      且授权回调域必须与 `WECHAT_REDIRECT_URI` 的域名完全一致（不接受 IP / localhost）
 - [ ] 开启 CSRF（当前为同源 Session + 关闭 CSRF，生产建议恢复）
 - [ ] 会话存储若要多实例，换成 Spring Session + Redis
 
@@ -592,6 +639,20 @@ docker compose up -d
 
 `SESSION` Cookie 没带上。确认请求是**同源**访问（不要用 `127.0.0.1` 和 `localhost` 混着开），
 并且 `server.reactive.session.timeout` 没有设得过短。
+</details>
+
+<details>
+<summary><b>微信登录一直是演示模式 / 扫码后报「授权状态校验失败」</b></summary>
+
+**一直是演示模式**：说明 `WECHAT_APP_ID` 或 `WECHAT_APP_SECRET` 为空（`isConfigured()` 要求两者都非空）。
+填进 `application-local.yml` 或环境变量即可自动切换，无需改代码。
+
+**state 校验失败**常见三个原因：
+
+1. 回调页打开的浏览器与点「微信登录」的不是同一个（换了设备/无痕窗口），服务端会话里没有这个 state；
+2. 二维码停留超过会话有效期（默认 8h）后会话过期；
+3. `WECHAT_REDIRECT_URI` 的域名和开放平台配置的「授权回调域」不一致 —— 这是最常见的，
+   微信会直接拒绝跳转，报 `redirect_uri 参数错误`。
 </details>
 
 <details>

@@ -55,14 +55,16 @@ public class UserService {
     }
 
     /**
-     * 微信扫码登录：openid 已绑定账号则直接登录；否则自动注册一个 USER 账号并绑定该微信后登录。
+     * 微信扫码登录：优先按 unionid 找账号（跨应用稳定），找不到再按 openid；
+     * 都没有则自动注册一个 USER 账号并绑定该微信后登录。
      * 自动注册的用户名形如 wxXXXX（X 取自 openid 末段，保证唯一），密码随机（扫码登录不需要密码）。
      */
-    public UserEntity loginOrRegisterByWechat(String openid, String nickname) {
+    public UserEntity loginOrRegisterByWechat(String openid, String unionid, String nickname) {
         if (openid == null || openid.isBlank()) {
             throw new UserException("微信授权失败：未获取到 openid");
         }
-        return repo.findByWechatOpenid(openid)
+        String uid = blankToNull(unionid);
+        return findByWechatIdentity(uid, openid)
                 .orElseGet(() -> {
                     String base = "wx" + (openid.length() > 8 ? openid.substring(openid.length() - 8) : openid)
                             .replaceAll("[^a-zA-Z0-9]", "");
@@ -73,6 +75,7 @@ public class UserService {
                     u.setPasswordHash(Passwords.hash(generateRandomPwd()));
                     u.setRole("USER");
                     u.setWechatOpenid(openid);
+                    u.setWechatUnionid(uid);
                     u.setWechatNickname(nickname);
                     u.setWechatBoundAt(now);
                     u.setCreatedAt(now);
@@ -81,6 +84,15 @@ public class UserService {
                     System.out.println("[campus-dialogue] 微信扫码首次登录，已自动创建账号：" + username);
                     return u;
                 });
+    }
+
+    /** unionid 优先、openid 兜底：unionid 能为空（开放平台未绑定时微信不返回）。 */
+    private Optional<UserEntity> findByWechatIdentity(String unionid, String openid) {
+        if (unionid != null) {
+            Optional<UserEntity> byUnionid = repo.findByWechatUnionid(unionid);
+            if (byUnionid.isPresent()) return byUnionid;
+        }
+        return repo.findByWechatOpenid(openid);
     }
 
     private String ensureUniqueUsername(String base) {
@@ -165,20 +177,25 @@ public class UserService {
         return toProfile(u);
     }
 
-    /** 绑定微信：openid 全站唯一，重复绑定直接拒绝。 */
-    public ProfileDto bindWechat(String username, String openid, String nickname) {
+    /** 绑定微信：openid / unionid 全站唯一，重复绑定直接拒绝。 */
+    public ProfileDto bindWechat(String username, String openid, String unionid, String nickname) {
         UserEntity u = require(username);
         if (openid == null || openid.isBlank()) {
             throw new UserException("微信授权失败：未获取到 openid");
         }
+        String uid = blankToNull(unionid);
         boolean occupied = repo.findByWechatOpenid(openid)
                 .filter(other -> !other.getId().equals(u.getId()))
-                .isPresent();
+                .isPresent()
+                || (uid != null && repo.findByWechatUnionid(uid)
+                .filter(other -> !other.getId().equals(u.getId()))
+                .isPresent());
         if (occupied) {
-            throw new UserException("该微信已绑定其他账号");
+            throw new UserException("该微信已绑定其他账号，请先解绑原账号");
         }
         long now = System.currentTimeMillis();
         u.setWechatOpenid(openid);
+        u.setWechatUnionid(uid);
         u.setWechatNickname(nickname);
         u.setWechatBoundAt(now);
         u.setUpdatedAt(now);
@@ -189,6 +206,7 @@ public class UserService {
     public ProfileDto unbindWechat(String username) {
         UserEntity u = require(username);
         u.setWechatOpenid(null);
+        u.setWechatUnionid(null);
         u.setWechatNickname(null);
         u.setWechatBoundAt(null);
         u.setUpdatedAt(System.currentTimeMillis());
@@ -227,6 +245,10 @@ public class UserService {
         u.setCreatedAt(now);
         u.setUpdatedAt(now);
         return repo.save(u);
+    }
+
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s;
     }
 
     private void validateUsername(String username) {

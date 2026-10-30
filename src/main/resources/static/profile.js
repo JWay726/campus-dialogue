@@ -203,14 +203,15 @@ async function unbindWechat() {
   }
 }
 
-/** 真实模式扫码回调：URL 带 ?code=xxx 时自动提交绑定。 */
+/** 真实模式扫码回调：URL 带 ?code=xxx 时自动提交绑定（state 原样带回，后端比对防 CSRF）。 */
 async function handleWechatCallback() {
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
+  const state = params.get('state');
   if (!code) return;
   history.replaceState({}, '', location.pathname);
   try {
-    profile = await api('/api/me/wechat/bind', { method: 'POST', body: JSON.stringify({ code }) });
+    profile = await api('/api/me/wechat/bind', { method: 'POST', body: JSON.stringify({ code, state }) });
     setMsg('#wechat-msg', '微信绑定成功', true);
     render();
   } catch (e) {

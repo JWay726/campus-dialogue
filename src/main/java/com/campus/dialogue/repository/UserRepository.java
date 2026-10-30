@@ -10,4 +10,5 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     boolean existsByUsername(String username);
     Optional<UserEntity> findByStudentNo(String studentNo);
     Optional<UserEntity> findByWechatOpenid(String wechatOpenid);
+    Optional<UserEntity> findByWechatUnionid(String wechatUnionid);
 }

@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -26,6 +27,9 @@ import java.util.function.Function;
 @RestController
 @RequestMapping("/api/me")
 public class MeController {
+
+    /** 微信绑定 state 在 WebSession 中的键（与登录用不同键，避免两个流程互相覆盖）。 */
+    private static final String STATE_KEY_BIND = "campus.wechat.bind.state";
 
     private final UserService userService;
     private final WechatService wechatService;
@@ -61,36 +65,56 @@ public class MeController {
         });
     }
 
-    /** 微信授权地址：未配置开放平台凭据时返回 demo=true（前端展示演示绑定）。 */
+    /** 微信授权地址：已配置凭据时生成一次性 state 存入会话；未配置时返回 demo=true（前端走演示绑定）。 */
     @GetMapping("/wechat/authorize-url")
-    public Mono<ResponseEntity<Object>> wechatAuthorizeUrl(@AuthenticationPrincipal(expression = "username") String me) {
-        return handle(me, name -> {
-            String url = wechatService.authorizeUrl(name);
+    public Mono<ResponseEntity<Object>> wechatAuthorizeUrl(@AuthenticationPrincipal(expression = "username") String me,
+                                                           ServerWebExchange exchange) {
+        if (me == null) {
+            return Mono.just(unauthorized());
+        }
+        if (!wechatService.isConfigured()) {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("demo", url == null);
-            m.put("url", url);
-            m.put("configured", wechatService.isConfigured());
-            return ResponseEntity.ok(m);
-        });
+            m.put("demo", true);
+            m.put("url", null);
+            m.put("configured", false);
+            return Mono.just(ResponseEntity.ok((Object) m));
+        }
+        String state = WechatService.newState();
+        return exchange.getSession()
+                .doOnNext(s -> s.getAttributes().put(STATE_KEY_BIND, state))
+                .map(s -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("demo", false);
+                    m.put("url", wechatService.authorizeUrl(state));
+                    m.put("configured", true);
+                    return ResponseEntity.ok((Object) m);
+                });
     }
 
-    /** 微信绑定：传入微信回调的 code，换取 openid 后写入账号。 */
+    /** 微信绑定：先校验 state（防 CSRF），再用回调的 code 换取 openid/unionid 写入账号。 */
     @PostMapping("/wechat/bind")
     public Mono<ResponseEntity<Object>> bindWechat(@RequestBody(required = false) Map<String, String> body,
-                                                   @AuthenticationPrincipal(expression = "username") String me) {
+                                                   @AuthenticationPrincipal(expression = "username") String me,
+                                                   ServerWebExchange exchange) {
         String code = body == null ? null : body.get("code");
+        String state = body == null ? null : body.get("state");
         return Mono.defer(() -> {
                     if (me == null) return Mono.just(unauthorized());
-                    return wechatService.exchangeCode(code)
-                            .map(u -> {
-                                ProfileDto p = userService.bindWechat(me, u.openid(), u.nickname());
-                                Map<String, Object> m = profileView(p);
-                                m.put("demo", u.demo());
-                                return ResponseEntity.<Object>ok(m);
-                            })
-                            .subscribeOn(Schedulers.boundedElastic());
-                })
-                .onErrorResume(e -> Mono.just(failure(e)));
+                    return consumeState(exchange, state).flatMap(ok -> {
+                        if (!ok) {
+                            return Mono.just(badRequest("授权状态校验失败（state 不匹配或已过期），请重新扫码"));
+                        }
+                        return wechatService.exchangeCode(code)
+                                .map(u -> {
+                                    ProfileDto p = userService.bindWechat(me, u.openid(), u.unionid(), u.nickname());
+                                    Map<String, Object> m = profileView(p);
+                                    m.put("demo", u.demo());
+                                    return ResponseEntity.<Object>ok(m);
+                                })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .onErrorResume(e -> Mono.just(failure(e)));
+                    });
+                });
     }
 
     /** 解绑微信。 */
@@ -100,6 +124,20 @@ public class MeController {
     }
 
     // ---------------- 内部工具 ----------------
+
+    /** 取出并删除会话中的 state 与回调值比对；演示模式（未配置凭据）不校验。 */
+    private Mono<Boolean> consumeState(ServerWebExchange exchange, String state) {
+        if (!wechatService.isConfigured()) {
+            return Mono.just(true);
+        }
+        if (state == null || state.isBlank()) {
+            return Mono.just(false);
+        }
+        return exchange.getSession().map(s -> {
+            Object expected = s.getAttributes().remove(STATE_KEY_BIND);
+            return expected != null && expected.equals(state);
+        });
+    }
 
     /** 统一处理：执行同步业务 → 异常转 401/400/500。 */
     private Mono<ResponseEntity<Object>> handle(String me, Function<String, ResponseEntity<Object>> action) {

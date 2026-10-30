@@ -23,10 +23,12 @@ const redirectByRole = (role) => {
 };
 
 // 微信扫码回调：URL 带 code 时优先走扫码登录（code 仅可用一次，处理完即清理）
+// state 由后端生成并存在服务端会话里，这里原样带回，后端比对通过才认这次授权（防 CSRF）
 (async () => {
   const code = params.get('code');
+  const state = params.get('state');
   if (code) {
-    await handleWechatCallback(code);
+    await handleWechatCallback(code, state);
     return;
   }
   // 已登录则直接进入对应页面，避免重复登录
@@ -44,7 +46,7 @@ const redirectByRole = (role) => {
   }
 })();
 
-async function handleWechatCallback(code) {
+async function handleWechatCallback(code, state) {
   history.replaceState({}, '', location.pathname); // 清掉 code，避免刷新重复消费
   btn.disabled = true;
   try {
@@ -52,7 +54,7 @@ async function handleWechatCallback(code) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ code })
+      body: JSON.stringify({ code, state })
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) { errEl.textContent = data.error || '微信登录失败'; return; }

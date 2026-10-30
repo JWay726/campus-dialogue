@@ -42,6 +42,9 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    /** 微信登录 state 在 WebSession 中的键；回调时取出比对后立即删除（一次性）。 */
+    private static final String STATE_KEY_LOGIN = "campus.wechat.login.state";
+
     private final UserService userService;
     private final WechatService wechatService;
     private final ServerSecurityContextRepository securityContextRepository;
@@ -81,37 +84,71 @@ public class AuthController {
     }
 
     /**
-     * 微信扫码登录：用授权 code 换 openid，已绑定账号则登录、否则自动注册 USER 并绑定微信。
+     * 微信扫码登录：先校验 state（防 CSRF），再用授权 code 换 openid/unionid，
+     * 已绑定账号则登录、否则自动注册 USER 并绑定微信。
      * 认证成功后把 SecurityContext 写入 WebSession（与表单登录等价，浏览器拿到 SESSION Cookie）。
      */
     @PostMapping("/wechat/login")
     public Mono<ResponseEntity<Map<String, Object>>> wechatLogin(@RequestBody(required = false) Map<String, String> body,
                                                                 ServerWebExchange exchange) {
         String code = body == null ? null : body.get("code");
-        return wechatService.exchangeCode(code)
-                .flatMap(wu -> Mono.fromCallable(() -> userService.loginOrRegisterByWechat(wu.openid(), wu.nickname()))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .flatMap(user -> loginIntoSession(exchange, user)
-                                .thenReturn(ResponseEntity.ok(loginResult(user.getUsername(),
-                                        user.getRole(), wu.demo())))))
-                .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.<String, Object>of("error", orDefault(e.getMessage())))));
+        String state = body == null ? null : body.get("state");
+        return consumeState(exchange, state).flatMap(ok -> {
+            if (!ok) {
+                return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.<String, Object>of("error", "授权状态校验失败（state 不匹配或已过期），请重新扫码")));
+            }
+            return wechatService.exchangeCode(code)
+                    .flatMap(wu -> Mono.fromCallable(() ->
+                                    userService.loginOrRegisterByWechat(wu.openid(), wu.unionid(), wu.nickname()))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .flatMap(user -> loginIntoSession(exchange, user)
+                                    .thenReturn(ResponseEntity.ok(loginResult(user.getUsername(),
+                                            user.getRole(), wu.demo())))))
+                    .onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                            .body(Map.<String, Object>of("error", orDefault(e.getMessage())))));
+        });
     }
 
-    /** 微信扫码登录用的授权地址：未配置凭据时返回 demo=true（前端走演示登录）。 */
+    /**
+     * 微信扫码登录用的授权地址。
+     * 已配置凭据：生成一次性 state 存进当前 WebSession，随 url 一起返回（前端只负责跳转）。
+     * 未配置凭据：返回 demo=true，前端走演示登录。
+     */
     @GetMapping("/wechat/authorize-url")
-    public Mono<ResponseEntity<Map<String, Object>>> wechatLoginAuthorizeUrl() {
-        return Mono.fromCallable(() -> {
-            String url = wechatService.authorizeUrl("login", true);
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("demo", url == null);
-            m.put("url", url);
-            m.put("configured", wechatService.isConfigured());
-            return ResponseEntity.ok(m);
-        }).subscribeOn(Schedulers.boundedElastic());
+    public Mono<ResponseEntity<Map<String, Object>>> wechatLoginAuthorizeUrl(ServerWebExchange exchange) {
+        if (!wechatService.isConfigured()) {
+            return Mono.just(ResponseEntity.ok(authorizeView(null, true)));
+        }
+        String state = WechatService.newState();
+        return exchange.getSession()
+                .doOnNext(s -> s.getAttributes().put(STATE_KEY_LOGIN, state))
+                .map(s -> ResponseEntity.ok(authorizeView(wechatService.authorizeUrl(state, true), false)));
     }
 
     // ---------------- 内部工具 ----------------
+
+    /** 取出并删除会话中的 state，与回调带回的值比对；演示模式（未配置凭据）不校验。 */
+    private Mono<Boolean> consumeState(ServerWebExchange exchange, String state) {
+        if (!wechatService.isConfigured()) {
+            return Mono.just(true);
+        }
+        if (state == null || state.isBlank()) {
+            return Mono.just(false);
+        }
+        return exchange.getSession().map(s -> {
+            Object expected = s.getAttributes().remove(STATE_KEY_LOGIN);
+            return expected != null && expected.equals(state);
+        });
+    }
+
+    private Map<String, Object> authorizeView(String url, boolean demo) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("demo", demo);
+        m.put("url", url);
+        m.put("configured", !demo);
+        return m;
+    }
 
     /** 把认证结果写入 WebSession（框架在响应提交时下发 SESSION Cookie）。 */
     private Mono<Void> loginIntoSession(ServerWebExchange exchange, UserEntity user) {
