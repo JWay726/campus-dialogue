@@ -1,0 +1,58 @@
+# 校园智能对话系统 —— 容器化编排
+# 用法：
+#   1) 准备 .env（至少填入 LLM_API_KEY / EMBEDDING_API_KEY；DB_PASSWORD 控制应用账号密码）
+#   2) docker compose up -d
+#   应用以 prod 配置连接同网络内的 MySQL，端口 8080。
+#   数据库账号已最小权限化（campus_app，仅授权 campus_dialogue.*），
+#   建库与建账号脚本见 db/init.sql；DDL 由 Flyway 在应用启动时迁移。
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: campus-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpw}
+      MYSQL_DATABASE: campus_dialogue
+      # 应用专用账号（最小权限：只拥有 campus_dialogue.*）
+      MYSQL_USER: campus_app
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change_me}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p\"$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  app:
+    build: .
+    container_name: campus-dialogue
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/campus_dialogue?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      DB_USERNAME: campus_app
+      DB_PASSWORD: ${DB_PASSWORD:-change_me}
+      LLM_API_KEY: ${LLM_API_KEY:-sk-xxxx}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-sk-xxxx}
+      # 后台登录鉴权（全站登录；知识库管理仅 ADMIN 可见）
+      # 仅种子管理员账号：首次启动若 users 表为空则灌入；其余账号由注册/后台创建。
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-change_me}
+      # 微信开放平台（个人中心绑定微信）；留空则为演示模式
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WECHAT_REDIRECT_URI: ${WECHAT_REDIRECT_URI:-http://localhost:8080/profile.html}
+      WECHAT_LOGIN_REDIRECT_URI: ${WECHAT_LOGIN_REDIRECT_URI:-http://localhost:8080/login.html}
+    ports:
+      - "8080:8080"
+    restart: on-failure
+
+volumes:
+  mysql-data:

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 · 校园智答</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/register.css">
+  <link rel="stylesheet" href="/dialog.css">
+</head>
+<body>
+  <div class="register-wrap">
+    <div class="register-card">
+      <h1>校园智答</h1>
+      <p class="register-sub">注册新账号（默认普通用户）</p>
+      <form id="register-form" autocomplete="on">
+        <label>用户名
+          <input id="username" type="text" autocomplete="username" placeholder="3-32 位" />
+        </label>
+        <label>密码
+          <input id="password" type="password" autocomplete="new-password" placeholder="至少 6 位" />
+        </label>
+        <label>确认密码
+          <input id="confirm" type="password" autocomplete="new-password" placeholder="再次输入密码" />
+        </label>
+        <button id="submit-btn" type="submit">注册</button>
+        <div id="error" class="register-error"></div>
+      </form>
+      <a class="register-back" href="/login.html">← 已有账号？去登录</a>
+    </div>
+  </div>
+  <script src="/dialog.js"></script>
+  <script src="/register.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+.register-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eef2ff, #f5f6f8);
+}
+.register-card {
+  width: 360px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 36px 32px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .08);
+}
+.register-card h1 { font-size: 22px; text-align: center; margin-bottom: 6px; }
+.register-sub { text-align: center; color: #6b7280; font-size: 14px; margin-bottom: 24px; }
+.register-card label { display: block; font-size: 13px; color: #4b5563; margin-bottom: 14px; }
+.register-card input {
+  width: 100%; margin-top: 6px; padding: 11px 12px;
+  border: 1px solid #d7dbe0; border-radius: 9px; font-size: 14px; outline: none;
+}
+.register-card input:focus { border-color: #2f6bff; }
+#submit-btn {
+  width: 100%; padding: 11px; border: none; border-radius: 9px;
+  background: #2f6bff; color: #fff; font-size: 15px; cursor: pointer; margin-top: 4px;
+}
+#submit-btn:hover:not(:disabled) { background: #2257e0; }
+#submit-btn:disabled { opacity: .6; cursor: default; }
+.register-error { color: #e5484d; font-size: 13px; min-height: 18px; margin-top: 10px; text-align: center; }
+.register-back {
+  display: block; text-align: center; margin-top: 18px;
+  font-size: 13px; color: #2f6bff; text-decoration: none;
+}
+.register-back:hover { text-decoration: underline; }

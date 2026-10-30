@@ -1,0 +1,92 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* 关键：.row 等类设置了 display:flex，会盖掉 UA 的 [hidden]{display:none}，
+   导致未绑定时「修改/解绑」行和输入行同时出现。这里强制提升 hidden 优先级。 */
+[hidden] { display: none !important; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  background: #f5f6f8; color: #1f2329; min-height: 100vh;
+}
+
+.topbar {
+  height: 56px; padding: 0 24px; background: #fff; border-bottom: 1px solid #eceef1;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.back { font-size: 13px; color: #2f6bff; text-decoration: none; }
+.back:hover { text-decoration: underline; }
+
+.wrap {
+  max-width: 720px; margin: 0 auto; padding: 24px 20px 60px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.card {
+  background: #fff; border: 1px solid #eceef1; border-radius: 14px; padding: 22px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.card-head { display: flex; align-items: center; gap: 10px; }
+.card-head h2 { font-size: 16px; font-weight: 600; }
+
+/* 账号概览 */
+.identity { flex-direction: row; align-items: center; gap: 16px; }
+.avatar-lg {
+  width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #2f6bff; color: #fff; font-size: 24px; font-weight: 600; text-transform: uppercase;
+}
+.identity-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.identity-main h1 { font-size: 20px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.tag {
+  display: inline-block; padding: 2px 9px; border-radius: 999px;
+  background: #eef3ff; color: #2f6bff; font-size: 12px; font-weight: 500;
+}
+.tag.soft { background: #f1f3f5; color: #6b7280; font-weight: 400; }
+.tag.ok { background: #e8f7ef; color: #1a9d63; }
+.tag.warn { background: #fff4e5; color: #b76e00; }
+.meta { font-size: 12px; color: #9aa0a6; }
+
+.desc { font-size: 13px; color: #6b7280; line-height: 1.7; }
+
+/* 行 / 表单 */
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.value { flex: 1; min-width: 140px; }
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px; letter-spacing: .5px;
+}
+.row-actions { display: flex; gap: 8px; margin-left: auto; }
+.row-actions.left { margin-left: 0; }
+
+input {
+  flex: 1; min-width: 160px; padding: 10px 12px; font-size: 14px; font-family: inherit;
+  border: 1px solid #d7dbe0; border-radius: 9px; outline: none;
+}
+input:focus { border-color: #2f6bff; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; color: #4b5563; }
+.card > input, .field input { width: 100%; }
+
+button {
+  padding: 9px 16px; border: none; border-radius: 9px; cursor: pointer;
+  background: #2f6bff; color: #fff; font-size: 13px; font-family: inherit;
+}
+button:hover:not(:disabled) { background: #2257e0; }
+button:disabled { opacity: .6; cursor: default; }
+button.ghost { background: #fff; border: 1px solid #d7dbe0; color: #6b7280; }
+button.ghost:hover:not(:disabled) { background: #f1f3f5; }
+button.danger { background: #fff; border: 1px solid #ff6b6b; color: #e5484d; }
+button.danger:hover:not(:disabled) { background: #fff0f0; }
+.topbar .ghost { background: #fff; border: 1px solid #d7dbe0; color: #6b7280; font-size: 12px; padding: 6px 12px; }
+.topbar .ghost:hover { background: #f1f3f5; color: #e5484d; }
+
+.msg { font-size: 13px; min-height: 18px; }
+.msg.ok { color: #2bb673; }
+.msg.err { color: #e5484d; }
+
+.wechat-bound { display: flex; align-items: center; gap: 10px; flex: 1; }
+.wechat-name { font-size: 14px; }
+.wechat-meta { font-size: 12px; color: #9aa0a6; }

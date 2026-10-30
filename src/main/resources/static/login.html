@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 校园智答</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <h1>校园智答</h1>
+      <p class="login-sub">知识库管理后台登录</p>
+      <div id="conn-status" class="conn-status"></div>
+      <form id="login-form" autocomplete="on">
+        <label>用户名
+          <input id="username" type="text" autocomplete="username" placeholder="admin" />
+        </label>
+        <label>密码
+          <input id="password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+        </label>
+        <button id="submit-btn" type="submit">登录</button>
+        <div id="error" class="login-error"></div>
+      </form>
+      <div class="divider"><span>或</span></div>
+      <button id="wechat-login-btn" type="button" class="wechat-btn">🟢 微信扫码登录</button>
+      <p id="wechat-hint" class="wechat-hint"></p>
+      <a class="login-register" href="/register.html">还没有账号？去注册</a>
+      <a class="login-back" href="/">← 返回对话</a>
+    </div>
+  </div>
+  <script src="/login.js"></script>
+</body>
+</html>

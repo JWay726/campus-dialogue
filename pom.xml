@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.campus</groupId>
+    <artifactId>campus-dialogue</artifactId>
+    <version>1.0.0</version>
+    <name>campus-dialogue</name>
+    <description>基于 SpringBoot 的校园智能对话系统（RAG + LLM）</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <!-- 显式锁定 Flyway 版本以兼容 MySQL 9.x -->
+        <flyway.version>11.3.0</flyway.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <!-- Spring Security（WebFlux 响应式安全）：路径级鉴权 + 自定义 token 认证 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!-- 数据库统一使用 MySQL（dev / prod 同一套 schema，由 Flyway 管理） -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Flyway：直接用核心与 MySQL 模块（Spring Boot starter 在部分镜像缺失）。
+             版本由 flyway.version 统一管理；Flyway 11 支持 MySQL 9.x。Boot 自动装配基于 flyway-core。 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+            <version>${flyway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- 开发热更新：Java 改完自动快速重启；静态资源走源码目录实现前端免重启 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- JDK 17+ 上 Mockito inline mock maker 需要开放 java.base 模块才能改写类 -->
+                    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/java.lang.invoke=ALL-UNNAMED
+                        --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                        --add-opens java.base/java.util=ALL-UNNAMED
+                        --add-opens java.base/sun.reflect.generics.reflectiveObjects=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${project.parent.version}</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

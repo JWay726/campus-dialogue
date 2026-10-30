@@ -1,0 +1,12 @@
+# 生产环境：MySQL（与开发环境同一套 schema，同样由 Flyway 管理）
+# 数据库连接统一在 application.yml 的 spring.datasource；
+# 生产务必用环境变量注入最小权限专用账号，不要沿用默认占位值：
+#   DB_URL / DB_USERNAME / DB_PASSWORD / LLM_API_KEY / EMBEDDING_API_KEY / AUTH_PASSWORD
+spring:
+  jpa:
+    show-sql: false       # 生产关闭 SQL 日志，避免刷屏与泄露参数
+
+logging:
+  level:
+    com.campus.dialogue: info
+    org.flywaydb: info    # 启动时可见迁移执行情况

@@ -1,0 +1,245 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  background: #f5f6f8;
+  color: #1f2329;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app { display: flex; height: 100vh; }
+
+/* 侧边栏 */
+#sidebar {
+  width: 264px;
+  background: #1f2329;
+  color: #e8eaed;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-header { padding: 18px 16px; border-bottom: 1px solid #2c3138; }
+.sidebar-header h1 { font-size: 17px; margin-bottom: 12px; font-weight: 600; }
+#new-chat {
+  width: 100%; padding: 10px; border: none; border-radius: 8px;
+  background: #2f6bff; color: #fff; cursor: pointer; font-size: 14px;
+}
+#new-chat:hover { background: #2257e0; }
+
+#session-list { flex: 1; overflow-y: auto; padding: 8px; }
+.session-item {
+  padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.session-item:hover { background: #2c3138; }
+.session-item.active { background: #2f6bff; }
+.session-title {
+  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px;
+}
+.session-del {
+  background: none; border: none; color: #9aa0a6; cursor: pointer;
+  font-size: 16px; margin-left: 8px; line-height: 1;
+}
+.session-del:hover { color: #ff6b6b; }
+
+/* 底部轻量提示条：删除对话等操作的反馈 */
+.toast {
+  position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%);
+  background: #1f2329; color: #fff; padding: 10px 16px; border-radius: 8px;
+  font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 999;
+}
+.toast[hidden] { display: none; }
+.toast.error { background: #e5484d; }
+
+/* 右键会话菜单（深色，匹配侧边栏主题） */
+.ctx-menu {
+  position: fixed; z-index: 1000; min-width: 148px;
+  background: #1f2329; border: 1px solid #353b42; border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 4px;
+}
+.ctx-menu[hidden] { display: none; }
+.ctx-menu button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  padding: 9px 12px; border-radius: 6px; font-size: 13px; color: #e6e8eb; cursor: pointer;
+}
+.ctx-menu button:hover { background: #2c3138; }
+.ctx-menu button.danger { color: #ff6b6b; }
+.ctx-menu button.danger:hover { background: #3a2727; }
+
+/* 自定义模态框（替代原生 confirm/prompt，避免宿主浏览器弹出“WorkBuddy”） */
+.modal-mask {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-mask[hidden] { display: none; }
+.modal {
+  background: #fff; border-radius: 12px; width: 340px; max-width: calc(100vw - 32px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.3); overflow: hidden;
+  animation: modalIn .12s ease-out;
+}
+@keyframes modalIn { from { transform: translateY(6px) scale(.98); opacity: .6; } to { transform: none; opacity: 1; } }
+.modal-title { font-size: 15px; font-weight: 600; color: #1f2329; padding: 16px 18px 0; }
+.modal-body { font-size: 14px; color: #4a4f57; padding: 10px 18px 18px; line-height: 1.5; }
+.modal-input {
+  margin: 0 18px 18px; width: calc(100% - 36px); box-sizing: border-box;
+  padding: 9px 12px; border: 1px solid #d6dae0; border-radius: 8px; font-size: 14px;
+}
+.modal-input[hidden] { display: none; }
+.modal-input:focus { outline: none; border-color: #2f6bff; box-shadow: 0 0 0 3px rgba(47,107,255,.15); }
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px; background: #f7f8fa; border-top: 1px solid #eef0f3;
+}
+.modal-btn {
+  padding: 8px 16px; border-radius: 8px; border: 1px solid #d6dae0;
+  background: #fff; color: #1f2329; font-size: 14px; cursor: pointer;
+}
+.modal-btn:hover { background: #f1f3f5; }
+.modal-btn.primary { background: #2f6bff; border-color: #2f6bff; color: #fff; }
+.modal-btn.primary:hover { background: #2257e0; }
+.modal-btn.danger { background: #e5484d; border-color: #e5484d; color: #fff; }
+.modal-btn.danger:hover { background: #d13a3f; }
+
+/* 修改重问模式提示条 */
+.edit-bar {
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+  padding: 6px 12px; margin: 0 12px 8px; border-radius: 8px;
+  background: rgba(47,107,255,.13); border: 1px solid #2f6bff; color: #cdd9ff; font-size: 13px;
+}
+.edit-bar[hidden] { display: none; }
+.edit-bar button {
+  background: transparent; border: 1px solid #2f6bff; color: #cdd9ff;
+  border-radius: 6px; padding: 2px 10px; cursor: pointer; font-size: 13px; flex: none;
+}
+.edit-bar button:hover { background: #2f6bff; color: #fff; }
+
+/* 消息级「修改」按钮：用户消息 hover 时显示 */
+.msg.user .msg-edit {
+  align-self: flex-end; margin-left: 8px; background: none; border: none;
+  color: #9aa0a6; cursor: pointer; font-size: 12px; opacity: 0; transition: opacity .15s;
+  flex: none;
+}
+.msg.user:hover .msg-edit { opacity: 1; }
+.msg-edit:hover { color: #2f6bff; }
+
+.sidebar-footer {
+  padding: 12px; border-top: 1px solid #2c3138;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.side-action {
+  display: block; width: 100%; text-align: left; padding: 9px 11px;
+  border: 1px solid #3a3f47; border-radius: 8px; background: transparent;
+  color: #e8eaed; cursor: pointer; font-size: 13px; font-family: inherit; text-decoration: none;
+}
+.side-action:hover { background: #2c3138; }
+.side-action:disabled { opacity: .55; cursor: default; }
+.kb-status { font-size: 12px; color: #9aa0a6; text-align: center; padding: 2px 0; }
+
+/* 聊天主区 */
+#chat { flex: 1; display: flex; flex-direction: column; background: #fff; min-width: 0; }
+#chat-header {
+  padding: 14px 20px; border-bottom: 1px solid #eceef1; font-weight: 600; font-size: 15px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+#admin-link { color: #9fc0ff; }
+#admin-link:hover { background: #2c3138; }
+#messages {
+  flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px;
+}
+.empty-tip {
+  margin: auto; color: #9aa0a6; font-size: 14px; text-align: center; max-width: 360px; line-height: 1.8;
+}
+
+.msg { display: flex; }
+.msg.user { justify-content: flex-end; }
+.msg.assistant { justify-content: flex-start; }
+.bubble {
+  max-width: 72%; padding: 12px 14px; border-radius: 12px; line-height: 1.65;
+  white-space: pre-wrap; word-break: break-word;
+}
+.msg.user .bubble { background: #2f6bff; color: #fff; border-bottom-right-radius: 4px; }
+.msg.assistant .bubble { background: #f1f3f5; color: #1f2329; border-bottom-left-radius: 4px; }
+/* 失败/中断的助手气泡：红色描边 + 浅红底，避免看起来像“空白没回复” */
+.msg.assistant.failed .bubble {
+  background: #fff1f0; color: #a8071a; border: 1px solid #ffccc7;
+}
+
+.sources { margin-top: 8px; font-size: 12px; color: #6b7280; max-width: 72%; }
+.sources summary { cursor: pointer; user-select: none; outline: none; }
+.sources pre {
+  margin-top: 6px; padding: 10px; background: #f7f8fa; border-radius: 8px;
+  white-space: pre-wrap; max-height: 220px; overflow: auto; line-height: 1.5;
+}
+
+/* 输入区 */
+#composer { display: flex; gap: 10px; padding: 14px 20px; border-top: 1px solid #eceef1; }
+#input {
+  flex: 1; resize: none; height: 50px; max-height: 140px; padding: 12px 14px;
+  border: 1px solid #d7dbe0; border-radius: 10px; font-family: inherit; font-size: 14px; outline: none;
+}
+#input:focus { border-color: #2f6bff; }
+#send {
+  padding: 0 22px; border: none; border-radius: 10px; background: #2f6bff; color: #fff;
+  cursor: pointer; font-size: 14px;
+}
+#send:hover { background: #2257e0; }
+
+/* 侧边栏底部用户区（个人中心 / 切换账号 / 退出登录） */
+.user-menu { position: relative; }
+.user-btn {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  padding: 8px 9px; border: 1px solid #343a43; border-radius: 10px;
+  background: #24292f; color: #e8eaed; cursor: pointer; font-family: inherit; text-align: left;
+}
+.user-btn:hover { background: #2c3138; }
+.avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #2f6bff; color: #fff; font-size: 13px; font-weight: 600; text-transform: uppercase;
+}
+.user-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.user-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-sub { font-size: 11px; color: #9aa0a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.caret { font-size: 10px; color: #9aa0a6; flex-shrink: 0; }
+.user-dropdown {
+  display: none; position: absolute; left: 0; right: 0; bottom: calc(100% + 6px);
+  background: #fff; border: 1px solid #eceef1; border-radius: 10px;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, .18); padding: 6px; z-index: 50;
+}
+.user-dropdown.open { display: block; }
+.user-dropdown a {
+  display: block; padding: 8px 10px; border-radius: 6px; font-size: 13px;
+  color: #1f2329; text-decoration: none;
+}
+.user-dropdown a:hover { background: #f1f3f5; }
+.user-dropdown a.danger { color: #e5484d; }
+.user-dropdown a.danger:hover { background: #fff0f0; }
+
+/* ---------- Markdown 渲染（助手回复） ---------- */
+.bubble h1, .bubble h2, .bubble h3, .bubble h4 { margin: 12px 0 6px; line-height: 1.3; font-weight: 600; color: #1a1f26; }
+.bubble h1 { font-size: 1.3em; }
+.bubble h2 { font-size: 1.18em; }
+.bubble h3 { font-size: 1.06em; }
+.bubble p { margin: 6px 0; line-height: 1.7; }
+.bubble ul, .bubble ol { margin: 6px 0; padding-left: 22px; }
+.bubble li { margin: 3px 0; line-height: 1.6; }
+.bubble blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid #cdd5e0; background: #f7f9fc; color: #5b6572; border-radius: 0 6px 6px 0; }
+.bubble code.md-code { background: #eef1f6; color: #c0341d; padding: 1px 5px; border-radius: 4px; font-size: .92em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.bubble pre.md-pre { background: #1f2329; color: #e6e8eb; padding: 12px 14px; border-radius: 8px; overflow-x: auto; margin: 8px 0; }
+.bubble pre.md-pre code { font-size: .88em; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre; }
+.bubble a { color: #2f6bff; text-decoration: none; }
+.bubble a:hover { text-decoration: underline; }
+.bubble strong { font-weight: 600; }
+.sources.no-hit > summary { color: #b06a00; }
+
+/* ---------- 失败气泡的「重新回答」按钮 ---------- */
+.retry-bar { margin-top: 6px; }
+.retry-btn {
+  background: #fff; color: #2f6bff; border: 1px solid #c7d7ff;
+  border-radius: 14px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.retry-btn:hover { background: #f0f5ff; border-color: #9bbaff; }
+.retry-btn:disabled { color: #9aa4b2; border-color: #e3e7ee; cursor: not-allowed; }

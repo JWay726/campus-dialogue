@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "CampusDialogue (dev, 8088)",
+      "request": "launch",
+      "mainClass": "com.campus.dialogue.CampusDialogueApplication",
+      "projectName": "campus-dialogue",
+      "args": "--server.port=8088 --spring.profiles.active=dev",
+      "envFile": "C:/Users/23895/AppData/Local/Temp/campus_keys.env"
+    }
+  ]
+}

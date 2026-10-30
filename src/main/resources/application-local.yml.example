@@ -1,0 +1,19 @@
+# ============================================================
+# 本地私密配置模板
+# 用法：复制本文件为 application-local.yml，填入自己的真实值
+#      cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
+# application-local.yml 已在 .gitignore 中，不会被提交；本模板可以提交。
+# 也可以不用本文件，改用环境变量注入（DB_PASSWORD / LLM_API_KEY / EMBEDDING_API_KEY ...）。
+# ============================================================
+spring:
+  datasource:
+    password: your-db-password          # 对应 DB_PASSWORD
+
+campus:
+  llm:
+    api-key: sk-your-deepseek-key       # 对应 LLM_API_KEY（对话，DeepSeek）
+  embedding:
+    api-key: sk-your-siliconflow-key    # 对应 EMBEDDING_API_KEY（向量化，SiliconFlow bge-m3）
+  auth:
+    admin:
+      password: your-admin-password     # 仅首次启动 users 表为空时作为种子管理员密码

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>校园智答 · 智能对话</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>校园智答</h1>
+        <button id="new-chat">+ 新建对话</button>
+      </div>
+      <nav id="session-list"></nav>
+      <div class="sidebar-footer">
+        <a href="/admin.html" id="admin-link" class="side-action" title="知识库管理" style="display:none">📚 知识库管理</a>
+        <button id="reindex-btn" class="side-action" title="清空并重建向量索引（campus-docs 更新后使用）" style="display:none">🔄 重建知识库索引</button>
+        <div id="kb-status" class="kb-status">知识库加载中…</div>
+        <div id="user-menu" class="user-menu" style="display:none">
+          <button id="user-btn" class="user-btn" type="button">
+            <span class="avatar" id="user-avatar">·</span>
+            <span class="user-meta">
+              <span id="user-name" class="user-name">…</span>
+              <span id="user-sub" class="user-sub">…</span>
+            </span>
+            <span class="caret">▴</span>
+          </button>
+          <div id="user-dropdown" class="user-dropdown">
+            <a href="/profile.html" id="profile-link">👤 个人中心</a>
+            <a href="#" id="switch-account">🔄 切换账号</a>
+            <a href="#" id="logout-link" class="danger">退出登录</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <main id="chat">
+      <header id="chat-header">
+        <span id="current-title">校园智答</span>
+      </header>
+      <div id="messages">
+        <div class="empty-tip">👋 你好，我是校园智答。问问我关于选课、考试、宿舍、图书馆、就业等校园问题吧～</div>
+      </div>
+      <div id="edit-bar" class="edit-bar" hidden>
+        <span>✎ 正在修改历史消息，发送后将重新生成后续回答</span>
+        <button id="edit-cancel" type="button">取消</button>
+      </div>
+      <div id="composer">
+        <textarea id="input" placeholder="输入你的问题，Enter 发送，Shift+Enter 换行…"></textarea>
+        <button id="send">发送</button>
+      </div>
+    </main>
+  </div>
+  <div id="toast" class="toast" hidden></div>
+  <div id="ctx-menu" class="ctx-menu" hidden>
+    <button type="button" data-action="rename">✎ 重命名</button>
+    <button type="button" data-action="delete" class="danger">🗑 删除</button>
+  </div>
+  <div id="modal-mask" class="modal-mask" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title" id="modal-title">提示</div>
+      <div class="modal-body" id="modal-body"></div>
+      <input id="modal-input" class="modal-input" type="text" hidden />
+      <div class="modal-actions">
+        <button id="modal-cancel" type="button" class="modal-btn">取消</button>
+        <button id="modal-ok" type="button" class="modal-btn primary">确定</button>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

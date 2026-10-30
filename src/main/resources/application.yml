@@ -1,0 +1,116 @@
+server:
+  port: 8080
+  # Spring Security 的登录态存放在服务端 WebSession 里，这里配置会话空闲超时（默认 30 分钟太短）
+  reactive:
+    session:
+      timeout: 8h
+
+spring:
+  # 数据库统一 MySQL（dev / prod 完全一致，只是连的实例可能不同）：
+  # 通过环境变量 DB_URL / DB_USERNAME / DB_PASSWORD 覆盖，默认连本机 3306 的 campus_dialogue。
+  # 默认激活 dev + local：local 里放本地私密值（application-local.yml，已被 .gitignore 忽略）。
+  # 生产用 --spring.profiles.active=prod（或环境变量 SPRING_PROFILES_ACTIVE=prod）覆盖，
+  # 此时 local 不生效，密钥全部由环境变量注入。
+  profiles:
+    active: ${SPRING_PROFILE:dev,local}
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/campus_dialogue?useUnicode=true&characterEncoding=UTF-8&connectionTimeZone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:campus_app}
+    password: ${DB_PASSWORD:change_me}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10        # WebFlux + JPA 混合场景，连接数不必太大
+      connection-timeout: 5000     # 拿不到连接 5s 快速失败，避免请求长时间挂起
+  # WebFlux 文件上传（知识库文件上传接口）的内存缓冲上限
+  codec:
+    max-in-memory-size: 10MB
+  jpa:
+    hibernate:
+      # 表结构由 Flyway 的 db/migration 脚本统一管理，Hibernate 只校验实体与表结构一致，
+      # 不再自动建表/改表，避免 dev 与 prod 出现 schema 漂移。
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true                 # 启动时执行 db/migration 下的迁移脚本（V1~V4）
+    # 早期由 Hibernate 预建过表的库没有 flyway 历史，需要 baseline 才能继续迁移；
+    # baseline-version=0 让 V1 仍作为真正待执行的迁移落地。
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+
+campus:
+  llm:
+    # OpenAI 兼容聊天接口，默认 DeepSeek；可换通义/OpenAI/SiliconFlow 等
+    base-url: https://api.deepseek.com
+    api-key: ${LLM_API_KEY:sk-xxxx}
+    model: deepseek-chat
+    temperature: 0.7
+    max-tokens: 1024
+    max-concurrent: 4          # 同时进行的流式对话上限，超出排队，避免 429
+    connect-timeout-seconds: 10   # 建连超时：校园网 DNS/TCP 抖动时尽快失败，不把整条链路挂死
+    response-timeout-seconds: 60  # 等待模型开始回字的超时（不影响流式输出的总时长）
+    # 备用通道：主通道余额不足(402)/限流(429)/域名解析失败时自动切换，对前端透明。
+    # 默认复用 SiliconFlow（与 embedding 同一个 key），也可填别家的 OpenAI 兼容地址。
+    fallback:
+      enabled: ${LLM_FALLBACK_ENABLED:true}
+      base-url: ${LLM_FALLBACK_BASE_URL:https://api.siliconflow.cn/v1}
+      api-key: ${LLM_FALLBACK_API_KEY:${EMBEDDING_API_KEY:sk-xxxx}}
+      model: ${LLM_FALLBACK_MODEL:deepseek-ai/DeepSeek-V3.2}
+  embedding:
+    # bge 向量化接口（OpenAI 兼容 /embeddings 格式）
+    # 本地部署：用 FlagEmbedding 起 FastAPI 服务；云端：SiliconFlow 的 BAAI/bge-m3
+    base-url: https://api.siliconflow.cn
+    api-key: ${EMBEDDING_API_KEY:sk-xxxx}
+    model: BAAI/bge-m3
+    dim: 1024
+    concurrency: 4             # 大知识库重建时的向量化并发度
+  rag:
+    enabled: true
+    top-k: 3
+    similarity-threshold: 0.3   # 余弦相似度低于此值的片段不注入 prompt（过滤无关噪声）
+  memory:
+    window-size: 10             # 兜底：最多保留的最近消息条数
+    max-chars: 4000            # 上下文字符预算：从最近消息往前累加，超出即截断（防超模型上下文）
+  # 登录鉴权（Spring Security 原生表单登录 + 服务端 Session，见 SecurityConfig）
+  # 账号持久化在 users 表：首次启动若表为空，用下方 admin 配置灌入默认管理员；
+  # 其余账号由「开放注册」或「管理员后台」创建，不再预置明文用户。
+  auth:
+    # 默认管理员（仅当 users 表为空时作为种子账号写入）
+    admin:
+      username: ${AUTH_USERNAME:admin}
+      password: ${AUTH_PASSWORD:change_me}
+      role: ADMIN
+  # 微信开放平台（个人中心「绑定微信」对接）
+  # 未配置 app-id/app-secret 时走「演示模式」：不访问微信服务器，仅记录演示 openid，便于本地联调。
+  wechat:
+    app-id: ${WECHAT_APP_ID:}
+    app-secret: ${WECHAT_APP_SECRET:}
+    redirect-uri: ${WECHAT_REDIRECT_URI:http://localhost:8088/profile.html}
+    login-redirect-uri: ${WECHAT_LOGIN_REDIRECT_URI:http://localhost:8088/login.html}
+    scope: snsapi_login
+
+logging:
+  level:
+    com.campus.dialogue: info
+
+---
+# ===== dev 专属：开启热更新 =====
+# 静态资源直接读源码目录，前端(HTML/JS/CSS)改完刷新浏览器即生效，无需 mvn compile/重启；
+# 关闭 HTTP 缓存，避免浏览器拿到旧文件。生产(prod)不启用此段，仍从 jar 内 classpath 读取。
+spring:
+  config.activate.on-profile: dev
+  web:
+    resources:
+      static-locations: file:src/main/resources/static/, classpath:/META-INF/resources/, classpath:/resources/, classpath:/static/, classpath:/public/
+      cache:
+        period: 0
+  # devtools 额外监控源码目录，前端文件变更也能触发 LiveReload
+  devtools:
+    restart:
+      additional-paths: src/main/resources/static
+      enabled: true
+    livereload:
+      enabled: true

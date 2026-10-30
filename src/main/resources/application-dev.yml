@@ -1,0 +1,7 @@
+# 本地开发环境：MySQL（与生产同一套 schema，由 Flyway 管理）
+# 数据库连接已统一在 application.yml 的 spring.datasource 中，此处只放「开发专用」的差异项。
+# 如需连另一台 MySQL，启动前设置环境变量即可，无需改代码：
+#   DB_URL=jdbc:mysql://192.168.1.10:3306/campus_dialogue?...  DB_USERNAME=xxx  DB_PASSWORD=xxx
+spring:
+  jpa:
+    show-sql: true        # 开发时打印 SQL，便于排查；生产保持 false

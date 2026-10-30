@@ -1,0 +1,42 @@
+.login-wrap {
+  height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f6f8;
+}
+.login-card {
+  width: 340px; background: #fff; border-radius: 14px; padding: 38px 32px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.08); text-align: center;
+}
+.login-card h1 { font-size: 22px; color: #1f2329; }
+.login-sub { color: #9aa0a6; font-size: 13px; margin: 6px 0 24px; }
+.login-card label {
+  display: block; text-align: left; font-size: 13px; color: #6b7280; margin-bottom: 14px;
+}
+.login-card input {
+  width: 100%; margin-top: 6px; padding: 11px 12px; border: 1px solid #d7dbe0;
+  border-radius: 8px; font-size: 14px; outline: none; font-family: inherit;
+}
+.login-card input:focus { border-color: #2f6bff; }
+.login-card button {
+  width: 100%; padding: 11px; border: none; border-radius: 8px; background: #2f6bff;
+  color: #fff; font-size: 15px; cursor: pointer; margin-top: 4px;
+}
+.login-card button:hover:not(:disabled) { background: #2257e0; }
+.login-card button:disabled { opacity: .6; cursor: default; }
+.login-error { color: #e5484d; font-size: 13px; min-height: 18px; margin-top: 10px; }
+.conn-status { font-size: 13px; min-height: 0; margin: 0 0 14px; line-height: 1.4; }
+.conn-status.warn { color: #e5484d; min-height: 18px; background: #fdecec; border: 1px solid #f5c2c2; border-radius: 8px; padding: 8px 10px; }
+.login-register { display: inline-block; margin-top: 16px; color: #6b7280; font-size: 13px; text-decoration: none; }
+.login-register:hover { color: #2f6bff; text-decoration: underline; }
+.login-back { display: inline-block; margin-top: 16px; color: #2f6bff; font-size: 13px; text-decoration: none; }
+.login-back:hover { text-decoration: underline; }
+
+/* 微信扫码登录 */
+.divider { display: flex; align-items: center; color: #c4c9d0; font-size: 12px; margin: 20px 0 14px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #eceef1; }
+.divider span { padding: 0 12px; }
+.wechat-btn {
+  width: 100%; padding: 11px; border: 1px solid #1aad19; border-radius: 8px;
+  background: #fff; color: #1aad19; font-size: 15px; cursor: pointer; font-family: inherit;
+}
+.wechat-btn:hover:not(:disabled) { background: #f0fbf0; }
+.wechat-btn:disabled { opacity: .6; cursor: default; }
+.wechat-hint { color: #9aa0a6; font-size: 12px; margin-top: 8px; line-height: 1.5; }

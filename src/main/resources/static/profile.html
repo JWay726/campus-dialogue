@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人中心 · 校园智答</title>
+  <link rel="stylesheet" href="/profile.css">
+  <link rel="stylesheet" href="/dialog.css">
+</head>
+<body>
+  <div class="topbar">
+    <a href="/" class="back">← 返回对话</a>
+    <button id="logout-top" class="ghost" type="button">退出登录</button>
+  </div>
+
+  <main class="wrap">
+    <!-- 账号概览 -->
+    <section class="card identity">
+      <div class="avatar-lg" id="avatar">·</div>
+      <div class="identity-main">
+        <h1 id="username">加载中…</h1>
+        <div class="tags">
+          <span id="role-tag" class="tag">—</span>
+          <span id="created" class="meta"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 学号绑定 -->
+    <section class="card">
+      <header class="card-head">
+        <h2>学号绑定</h2>
+        <span id="student-state" class="tag soft">未绑定</span>
+        <span class="tag soft">对接教务</span>
+      </header>
+      <p class="desc">
+        绑定学号后可用于身份核验、个性化问答与后续对接教务系统（课表 / 成绩）。
+        当前仅校验格式与唯一性，接入教务接口后可在同一页面自动同步学籍信息。
+      </p>
+
+      <div id="student-bound" class="row" hidden>
+        <div class="value"><span id="student-no" class="mono"></span></div>
+        <div class="row-actions">
+          <button id="student-edit" class="ghost" type="button">修改</button>
+          <button id="student-unbind" class="danger" type="button">解绑</button>
+        </div>
+      </div>
+
+      <div id="student-form" class="row">
+        <input id="student-input" placeholder="请输入学号（4-32 位字母或数字）" maxlength="32" autocomplete="off">
+        <button id="student-save" type="button">绑定学号</button>
+        <button id="student-cancel" class="ghost" type="button" hidden>取消</button>
+      </div>
+      <div class="msg" id="student-msg"></div>
+    </section>
+
+    <!-- 微信绑定 -->
+    <section class="card">
+      <header class="card-head">
+        <h2>微信绑定</h2>
+        <span id="wechat-state-tag" class="tag soft">未绑定</span>
+        <span id="wechat-mode" class="tag soft"></span>
+      </header>
+      <p class="desc" id="wechat-desc">用于扫码登录与消息通知。</p>
+      <div id="wechat-state" class="row"></div>
+      <div class="msg" id="wechat-msg"></div>
+    </section>
+
+    <!-- 修改密码 -->
+    <section class="card">
+      <header class="card-head"><h2>修改密码</h2></header>
+      <div class="field">
+        <label for="old-pwd">原密码</label>
+        <input id="old-pwd" type="password" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="new-pwd">新密码</label>
+        <input id="new-pwd" type="password" autocomplete="new-password" placeholder="至少 6 位">
+      </div>
+      <div class="field">
+        <label for="confirm-pwd">确认新密码</label>
+        <input id="confirm-pwd" type="password" autocomplete="new-password">
+      </div>
+      <div class="row-actions left">
+        <button id="save-pwd" type="button">保存新密码</button>
+      </div>
+      <div class="msg" id="pwd-msg"></div>
+    </section>
+  </main>
+
+  <script src="/dialog.js"></script>
+  <script src="/profile.js"></script>
+</body>
+</html>

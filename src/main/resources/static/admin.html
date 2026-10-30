@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>知识库管理 · 校园智答</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css">
+  <link rel="stylesheet" href="/dialog.css">
+</head>
+<body>
+  <div id="admin-app">
+    <header class="topbar">
+      <a href="/" class="back-link">← 返回对话</a>
+      <span class="divider"></span>
+      <span class="brand">知识库管理</span>
+      <div class="tabs">
+        <button class="tab active" data-tab="docs">文档管理</button>
+        <button class="tab" data-tab="users">用户管理</button>
+      </div>
+      <div class="topbar-right">
+        <span id="admin-user" title="当前登录用户">…</span>
+        <button id="logout-btn" title="退出登录">退出</button>
+      </div>
+    </header>
+
+    <main id="editor-pane">
+      <section id="doc-view">
+        <div class="doc-toolbar">
+          <div class="doc-picker" id="doc-picker">
+            <button id="picker-trigger" class="picker-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="picker-label">
+                <span id="picker-title">请选择文档</span>
+                <span id="picker-meta">加载中…</span>
+              </span>
+              <svg class="chev" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div id="picker-panel" class="picker-panel" hidden>
+              <div class="picker-search">
+                <input id="picker-search" type="text" placeholder="搜索标题或文件名…" autocomplete="off" />
+              </div>
+              <div id="picker-options" class="picker-options" role="listbox"></div>
+            </div>
+          </div>
+          <button id="new-doc" class="btn primary">+ 新建</button>
+          <button id="upload-doc" class="btn ghost" type="button" title="上传 .md / .txt 知识库文件，自动切分索引">📎 上传文件</button>
+          <input id="file-input" type="file" accept=".md,.txt,.text" multiple style="display:none" />
+          <div class="toolbar-right">
+            <span id="kb-status" class="kb-status">状态加载中…</span>
+            <button id="reindex-btn" class="btn ghost">🔄 重建索引</button>
+          </div>
+        </div>
+
+        <div class="editor-card">
+          <input id="doc-title" type="text" placeholder="文档标题" />
+          <textarea id="doc-content" placeholder="在此录入校园规章制度、办事指南等正文。保存后点“重建索引”让检索生效。"></textarea>
+          <div class="editor-actions">
+            <button id="save-doc" class="btn primary">保存</button>
+            <button id="delete-doc" class="btn danger" hidden>删除</button>
+            <span id="save-hint" class="hint"></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="user-view" hidden>
+        <div class="view-head">
+          <h2>用户管理</h2>
+          <button id="new-user-btn" class="btn primary">+ 新建用户</button>
+        </div>
+        <div id="user-status" class="kb-status"></div>
+        <table class="user-table">
+          <thead>
+            <tr><th>用户名</th><th>角色</th><th>创建时间</th><th>操作</th></tr>
+          </thead>
+          <tbody id="user-list"></tbody>
+        </table>
+        <div id="user-editor" class="user-editor" hidden>
+          <h3>新建用户</h3>
+          <label>用户名 <input id="u-username" type="text" placeholder="3-32 位" /></label>
+          <label>密码 <input id="u-password" type="password" placeholder="至少 6 位" /></label>
+          <label>角色
+            <select id="u-role">
+              <option value="USER">普通用户 (USER)</option>
+              <option value="ADMIN">管理员 (ADMIN)</option>
+            </select>
+          </label>
+          <div class="editor-actions">
+            <button id="u-save" class="btn primary">创建</button>
+            <button id="u-cancel" class="btn ghost">取消</button>
+            <span id="u-hint" class="hint"></span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/dialog.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>

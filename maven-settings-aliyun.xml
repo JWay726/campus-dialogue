@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 放到用户目录的 ~/.m2/settings.xml，用于加速国内依赖下载 -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <mirrorOf>central</mirrorOf>
+      <name>Aliyun Maven</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>

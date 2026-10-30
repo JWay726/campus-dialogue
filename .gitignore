@@ -1,0 +1,15 @@
+target/
+.idea/
+*.iml
+*.log
+.DS_Store
+
+# 本地私密配置：数据库密码 / 模型 Key / 种子管理员密码
+# 模板见 application-local.yml.example，模板本身需要提交
+src/main/resources/application-local.yml
+.env
+
+# 本地数据目录（数据库统一使用 MySQL，不再产生本地库文件；
+# data-h2-backup-* 是历史 H2 文件的归档，可随时删除）
+data/
+data-h2-backup-*/
