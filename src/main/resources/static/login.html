@@ -13,9 +13,11 @@
       <h1>校园智答</h1>
       <p class="login-sub">知识库管理后台登录</p>
       <div id="conn-status" class="conn-status"></div>
+      <!-- 切换账号场景：提示当前登录身份，直接登录新账号即可切换，返回则保留原登录 -->
+      <p id="current-account" class="login-sub switch-tip" style="display:none"></p>
       <form id="login-form" autocomplete="on">
-        <label>用户名
-          <input id="username" type="text" autocomplete="username" placeholder="admin" />
+        <label>用户名 / 学号
+          <input id="username" type="text" autocomplete="username" placeholder="用户名或已绑定的学号" />
         </label>
         <label>密码
           <input id="password" type="password" autocomplete="current-password" placeholder="请输入密码" />
@@ -27,7 +29,8 @@
       <button id="wechat-login-btn" type="button" class="wechat-btn">🟢 微信扫码登录</button>
       <p id="wechat-hint" class="wechat-hint"></p>
       <a class="login-register" href="/register.html">还没有账号？去注册</a>
-      <a class="login-back" href="/">← 返回对话</a>
+      <!-- 仅在从对话页跳来时显示（例如点了「切换账号」又不想切了），由 login.js 控制 -->
+      <a class="login-back" id="login-back" href="/" style="display:none">← 返回对话</a>
     </div>
   </div>
   <script src="/login.js"></script>

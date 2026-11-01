@@ -3,9 +3,19 @@ package com.campus.dialogue.controller;
 import com.campus.dialogue.dto.ProfileDto;
 import com.campus.dialogue.service.UserService;
 import com.campus.dialogue.service.WechatService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.server.context.ServerSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -28,15 +38,20 @@ import java.util.function.Function;
 @RequestMapping("/api/me")
 public class MeController {
 
+    private static final Logger log = LoggerFactory.getLogger(MeController.class);
+
     /** 微信绑定 state 在 WebSession 中的键（与登录用不同键，避免两个流程互相覆盖）。 */
     private static final String STATE_KEY_BIND = "campus.wechat.bind.state";
 
     private final UserService userService;
     private final WechatService wechatService;
+    private final ServerSecurityContextRepository securityContextRepository;
 
-    public MeController(UserService userService, WechatService wechatService) {
+    public MeController(UserService userService, WechatService wechatService,
+                        ServerSecurityContextRepository securityContextRepository) {
         this.userService = userService;
         this.wechatService = wechatService;
+        this.securityContextRepository = securityContextRepository;
     }
 
     /** 当前账号资料。 */
@@ -63,6 +78,32 @@ public class MeController {
             userService.changePassword(name, oldPwd, newPwd);
             return ResponseEntity.ok(Map.of("message", "密码已修改，请使用新密码重新登录"));
         });
+    }
+
+    /**
+     * 修改用户名（登录账号）：需校验当前密码。
+     * 改完会同步刷新会话中的登录身份，避免后续请求还按旧用户名处理；
+     * 历史会话归属与管理员端用户列表都会同步（同一张 users 表 + sessions 归属迁移）。
+     */
+    @PostMapping("/username")
+    public Mono<ResponseEntity<Object>> changeUsername(@RequestBody(required = false) Map<String, String> body,
+                                                       @AuthenticationPrincipal(expression = "username") String me,
+                                                       ServerWebExchange exchange) {
+        String newName = body == null ? null : body.get("newUsername");
+        String password = body == null ? null : body.get("password");
+        if (me == null) {
+            return Mono.just(unauthorized());
+        }
+        return Mono.fromCallable(() -> userService.changeUsername(me, newName, password))
+                .subscribeOn(Schedulers.boundedElastic())
+                // 回到请求线程再做会话写入：WebSession 的读写要和原请求同一上下文，
+                // 否则新会话写不回去，客户端下一次请求就成匿名（表现为改名后被踢下线）。
+                .flatMap(p -> refreshPrincipal(exchange, p).map(ok -> ok
+                        ? ResponseEntity.ok((Object) profileView(p))
+                        : ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                .body((Object) Map.of("error", "用户名已修改，请重新登录"))))
+                .onErrorResume(UserService.UserException.class, e -> Mono.just(badRequest(e.getMessage())))
+                .onErrorResume(e -> Mono.just(serverError(e.getMessage())));
     }
 
     /** 微信授权地址：已配置凭据时生成一次性 state 存入会话；未配置时返回 demo=true（前端走演示绑定）。 */
@@ -124,6 +165,31 @@ public class MeController {
     }
 
     // ---------------- 内部工具 ----------------
+
+    /**
+     * 用新用户名重建会话中的认证身份（角色/权限保持不变），返回是否保存成功。
+     * 不刷新的话，WebSession 里仍是旧用户名，后续请求会被当成"用户不存在"（表现为 404/资料加载失败）。
+     */
+    private Mono<Boolean> refreshPrincipal(ServerWebExchange exchange, ProfileDto p) {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(SecurityContext::getAuthentication)
+                .filter(Authentication::isAuthenticated)
+                .flatMap(old -> {
+                    UserDetails principal = User.withUsername(p.username())
+                            .password("")   // 会话对象不需要密码，仅保留用户名与权限
+                            .roles(p.role())
+                            .build();
+                    Authentication updated = new UsernamePasswordAuthenticationToken(
+                            principal, old.getCredentials(), principal.getAuthorities());
+                    return securityContextRepository.save(exchange, new SecurityContextImpl(updated))
+                            .thenReturn(true);
+                })
+                .defaultIfEmpty(false)
+                .onErrorResume(e -> {
+                    log.warn("改名后刷新登录身份失败：{}", e.getMessage());
+                    return Mono.just(false);
+                });
+    }
 
     /** 取出并删除会话中的 state 与回调值比对；演示模式（未配置凭据）不校验。 */
     private Mono<Boolean> consumeState(ServerWebExchange exchange, String state) {

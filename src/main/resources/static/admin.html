@@ -50,13 +50,15 @@
           <input id="file-input" type="file" accept=".md,.txt,.text" multiple style="display:none" />
           <div class="toolbar-right">
             <span id="kb-status" class="kb-status">状态加载中…</span>
+            <button id="import-samples" class="btn ghost" type="button" title="导入内置的示例校园资料（同名文件已存在则跳过）">⬇ 导入示例库</button>
             <button id="reindex-btn" class="btn ghost">🔄 重建索引</button>
+            <button id="wipe-all" class="btn danger" type="button" title="删除全部文档与索引片段，不可撤销">🗑 清空知识库</button>
           </div>
         </div>
 
         <div class="editor-card">
           <input id="doc-title" type="text" placeholder="文档标题" />
-          <textarea id="doc-content" placeholder="在此录入校园规章制度、办事指南等正文。保存后点“重建索引”让检索生效。"></textarea>
+          <textarea id="doc-content" placeholder="在此录入校园规章制度、办事指南等正文。保存即自动重建该文档的索引，问答立即生效。"></textarea>
           <div class="editor-actions">
             <button id="save-doc" class="btn primary">保存</button>
             <button id="delete-doc" class="btn danger" hidden>删除</button>

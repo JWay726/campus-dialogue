@@ -125,6 +125,37 @@ public class SessionService {
         return loadMessages(sessionId);
     }
 
+    /**
+     * 账号改名后同步会话归属：把 oldUsername 名下的会话全部改到 newUsername 名下，
+     * 否则改名用户登录后会看不到自己原来的对话（会话按 username 隔离）。
+     *
+     * @return 受影响的会话数
+     */
+    @Transactional
+    public int renameOwner(String oldUsername, String newUsername) {
+        if (oldUsername == null || newUsername == null || oldUsername.equals(newUsername)) {
+            return 0;
+        }
+        return sessionRepository.reassignUsername(oldUsername, newUsername);
+    }
+
+    /**
+     * 删除某账号名下的全部会话与消息（删账号时调用）。
+     * 不清理会留下孤儿会话：以后有人注册/改成同名，就会"继承"这些历史对话。
+     *
+     * @return 删除的会话数
+     */
+    @Transactional
+    public int deleteAllOf(String username) {
+        if (username == null) return 0;
+        List<SessionEntity> list = sessionRepository.findByUsernameOrderByUpdatedAtDesc(username);
+        for (SessionEntity se : list) {
+            messageRepository.deleteBySessionId(se.getId());
+            sessionRepository.deleteById(se.getId());
+        }
+        return list.size();
+    }
+
     private List<Message> loadMessages(long sessionId) {
         return messageRepository.findBySessionIdOrderByTimestampAsc(sessionId).stream()
                 .map(e -> new Message(e.getId(), e.getRole(), e.getContent(), e.getTimestamp()))

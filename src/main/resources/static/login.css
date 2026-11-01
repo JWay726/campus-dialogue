@@ -7,6 +7,12 @@
 }
 .login-card h1 { font-size: 22px; color: #1f2329; }
 .login-sub { color: #9aa0a6; font-size: 13px; margin: 6px 0 24px; }
+/* 切换账号模式的当前身份提示 */
+.switch-tip {
+  color: #2f6bff; background: #eef4ff; border: 1px solid #dbe6ff;
+  border-radius: 8px; padding: 8px 10px; line-height: 1.6;
+  font-size: 12px; text-align: left; margin: 0 0 18px;
+}
 .login-card label {
   display: block; text-align: left; font-size: 13px; color: #6b7280; margin-bottom: 14px;
 }

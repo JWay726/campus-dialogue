@@ -26,6 +26,30 @@
       </div>
     </section>
 
+    <!-- 账号信息：修改用户名（登录账号） -->
+    <section class="card">
+      <header class="card-head">
+        <h2>账号信息</h2>
+        <span class="tag soft">登录账号</span>
+      </header>
+      <p class="desc">
+        用户名即登录账号。修改后密码、学号、微信绑定和历史对话都会保留，下次登录请使用新用户名；
+        管理员用户管理中显示的用户名会同步更新。
+      </p>
+      <div class="field">
+        <label for="new-username">新用户名</label>
+        <input id="new-username" type="text" maxlength="32" autocomplete="off" placeholder="3-32 位，不含空格">
+      </div>
+      <div class="field">
+        <label for="username-pwd">当前密码</label>
+        <input id="username-pwd" type="password" autocomplete="current-password" placeholder="确认是本人操作">
+      </div>
+      <div class="row-actions left">
+        <button id="save-username" type="button">保存用户名</button>
+      </div>
+      <div class="msg" id="username-msg"></div>
+    </section>
+
     <!-- 学号绑定 -->
     <section class="card">
       <header class="card-head">
@@ -35,6 +59,7 @@
       </header>
       <p class="desc">
         绑定学号后可用于身份核验、个性化问答与后续对接教务系统（课表 / 成绩）。
+        <strong>绑定完成后即可在登录页用学号代替用户名登录</strong>（密码不变）。
         当前仅校验格式与唯一性，接入教务接口后可在同一页面自动同步学籍信息。
       </p>
 

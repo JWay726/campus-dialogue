@@ -2,7 +2,9 @@ package com.campus.dialogue.controller;
 
 import com.campus.dialogue.entity.DocumentEntity;
 import com.campus.dialogue.service.DocumentService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -48,8 +50,33 @@ public class AdminController {
     @DeleteMapping("/{id}")
     public Mono<Map<String, Object>> delete(@PathVariable Long id) {
         return Mono.fromCallable(() -> {
-            documentService.delete(id);
-            return Map.<String, Object>of("deleted", id);
-        }).subscribeOn(Schedulers.boundedElastic());
+                    int vectors = documentService.delete(id);
+                    return Map.<String, Object>of(
+                            "deleted", id,
+                            "vectorsCleared", vectors,
+                            "documents", documentService.count());
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorMap(IllegalArgumentException.class,
+                        e -> new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage()));
+    }
+
+    /** 清空整个知识库（文档 + 向量片段）。用于彻底换资料，避免残留片段继续被检索。 */
+    @DeleteMapping
+    public Mono<Map<String, Object>> wipeAll() {
+        return Mono.fromCallable(() -> Map.<String, Object>of(
+                        "documentsDeleted", documentService.wipeAll())
+                )
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /** 手动导入 classpath:campus-docs 的示例知识库（同名文件已存在则跳过）。 */
+    @PostMapping("/import-samples")
+    public Mono<Map<String, Object>> importSamples() {
+        return Mono.fromCallable(() -> Map.<String, Object>of(
+                        "imported", documentService.seedFromClasspath(),
+                        "documents", documentService.count())
+                )
+                .subscribeOn(Schedulers.boundedElastic());
     }
 }

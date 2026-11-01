@@ -85,6 +85,14 @@ public class AppProperties {
         private int topK = 3;
         /** 相似度阈值（余弦）：低于该分数的片段不注入 prompt，避免答非所问/噪声。 */
         private double similarityThreshold = 0.3;
+        /**
+         * documents 表为空时，是否自动从 classpath:campus-docs 灌入示例文档。
+         * 默认关闭：管理员删空知识库后重启不会把示例文档"复活"（需要时在后台点「导入示例库」）。
+         */
+        private boolean seedOnEmpty = false;
+
+        public boolean isSeedOnEmpty() { return seedOnEmpty; }
+        public void setSeedOnEmpty(boolean seedOnEmpty) { this.seedOnEmpty = seedOnEmpty; }
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }

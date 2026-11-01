@@ -1,5 +1,6 @@
 package com.campus.dialogue.controller;
 
+import com.campus.dialogue.config.AppProperties;
 import com.campus.dialogue.service.DocumentService;
 import com.campus.dialogue.service.RetrievalService;
 import com.campus.dialogue.service.VectorStore;
@@ -22,12 +23,14 @@ public class DocController {
     private final RetrievalService retrievalService;
     private final VectorStore vectorStore;
     private final DocumentService documentService;
+    private final AppProperties props;
 
     public DocController(RetrievalService retrievalService, VectorStore vectorStore,
-                         DocumentService documentService) {
+                         DocumentService documentService, AppProperties props) {
         this.retrievalService = retrievalService;
         this.vectorStore = vectorStore;
         this.documentService = documentService;
+        this.props = props;
     }
 
     /** 即时录入一段校园资料：保存为 adhoc 文档并立即向量化（不清空既有库）。 */
@@ -54,10 +57,14 @@ public class DocController {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
-    /** 查看当前知识库片段数量。 */
+    /** 查看当前知识库规模：文档篇数 + 向量片段数 + RAG 开关（后台对账用）。 */
     @GetMapping("/status")
-    public Map<String, Object> status() {
-        return Map.of("chunks", vectorStore.size(), "ragEnabled", true);
+    public Mono<Map<String, Object>> status() {
+        return Mono.fromCallable(() -> Map.<String, Object>of(
+                        "documents", documentService.count(),
+                        "chunks", vectorStore.size(),
+                        "ragEnabled", props.getRag().isEnabled()))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**

@@ -114,6 +114,8 @@ public class SecurityConfig {
                                 "/register.html", "/register.js", "/register.css",
                                 "/styles.css", "/dialog.css", "/dialog.js",
                                 "/favicon.ico").permitAll()
+                        // ---- 公开：对话页外壳（游客可浏览界面；会话/聊天等数据接口仍需登录） ----
+                        .pathMatchers("/", "/index.html", "/app.js").permitAll()
                         // ---- 公开：登录、注册、微信登录、登出接口 ----
                         .pathMatchers("/api/auth/login", "/api/auth/register",
                                 "/api/auth/logout", "/api/auth/wechat/**").permitAll()
@@ -123,9 +125,8 @@ public class SecurityConfig {
                         .pathMatchers("/admin.html", "/admin.js", "/admin.css",
                                 "/api/admin/**",
                                 "/api/docs/reindex", "/api/docs/upload", "/api/docs/index").hasRole("ADMIN")
-                        // ---- 需登录：对话页、个人中心、聊天/会话/知识库状态/个人资料 ----
-                        .pathMatchers("/", "/index.html", "/app.js",
-                                "/profile.html", "/profile.js", "/profile.css",
+                        // ---- 需登录：个人中心、聊天/会话/知识库状态/个人资料 ----
+                        .pathMatchers("/profile.html", "/profile.js", "/profile.css",
                                 "/api/chat", "/api/chat/**",
                                 "/api/sessions", "/api/sessions/**",
                                 "/api/docs/status",

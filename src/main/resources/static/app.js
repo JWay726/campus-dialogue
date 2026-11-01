@@ -8,6 +8,7 @@ const API = {
 let currentSessionId = null;
 let currentUser = null;
 let currentRole = null;
+let guestMode = false;
 let editingFromMsgId = null;
 
 /** 按角色控制入口：知识库管理与重建索引仅 ADMIN 可见。 */
@@ -182,12 +183,25 @@ function appendMessage(role, content, ts, msgId) {
 }
 
 async function newChat() {
+  if (await requireLogin()) return;
   const res = await fetch(API.sessions, { method: 'POST' });
   const s = await res.json();
   currentSessionId = s.id;
   currentTitleEl.textContent = s.title || ('对话 ' + s.id);
   messagesEl.innerHTML = '';
   await loadSessions();
+}
+
+/** 需要登录才能执行的操作：游客模式下弹窗引导去登录，返回 true 表示已拦截。 */
+async function requireLogin() {
+  if (!guestMode) return false;
+  const ok = await showModal({
+    title: '需要登录',
+    message: '登录后才能提问并保存对话记录，是否现在去登录？',
+    okText: '去登录'
+  });
+  if (ok) location.href = '/login.html?from=%2F';
+  return true;
 }
 
 async function deleteSession(id) {
@@ -270,6 +284,7 @@ async function renameSession(id, defaultTitle) {
 async function send(retryText, isRetry = false) {
   const text = isRetry && typeof retryText === 'string' ? retryText.trim() : inputEl.value.trim();
   if (!text) return;
+  if (await requireLogin()) return;   // 游客：保留输入内容，引导去登录
   if (!isRetry) {
     inputEl.value = '';
   }
@@ -612,7 +627,8 @@ function setupUserMenu() {
   document.addEventListener('click', () => dd.classList.remove('open'));
   const sw = document.getElementById('switch-account');
   const lo = document.getElementById('logout-link');
-  if (sw) sw.addEventListener('click', (e) => { e.preventDefault(); logoutAndRedirect('/'); });
+  // 切换账号：不先登出，保留当前登录态——在登录页反悔点「返回对话」可继续用原账号
+  if (sw) sw.addEventListener('click', (e) => { e.preventDefault(); location.href = '/login.html?switch=1&from=%2F'; });
   if (lo) lo.addEventListener('click', (e) => { e.preventDefault(); logoutAndRedirect(null); });
 }
 
@@ -633,16 +649,32 @@ function renderUser(me) {
   setupUserMenu();
 }
 
-// 全站登录：未登录跳登录页；已登录渲染侧边栏用户区
+// 全站登录：已登录渲染侧边栏用户区；未登录进入「游客模式」（可浏览界面，提问时再引导登录）
 (async () => {
   try {
     const r = await fetch('/api/me', { credentials: 'same-origin' });
-    if (!r.ok) { location.href = '/login.html'; return; }
+    if (!r.ok) { enterGuest(); return; }
     renderUser(await r.json());
   } catch (e) {
-    location.href = '/login.html';
+    enterGuest();
     return;
   }
   loadSessions();
   loadStatus();
 })();
+
+/**
+ * 游客模式：未登录也能打开对话页浏览界面。
+ * 之前未登录访问 / 会被后端 302 回登录页，导致登录页上的「返回对话」看起来点了没反应。
+ */
+function enterGuest() {
+  guestMode = true;
+  currentUser = null;
+  currentRole = 'GUEST';
+  const menu = document.getElementById('user-menu');
+  if (menu) menu.style.display = 'none';
+  const guest = document.getElementById('guest-login');
+  if (guest) guest.style.display = '';
+  if (kbStatusEl) kbStatusEl.textContent = '未登录：提问需先登录';
+  applyRole();
+}

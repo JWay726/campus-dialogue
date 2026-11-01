@@ -71,6 +71,9 @@ campus:
     enabled: true
     top-k: 3
     similarity-threshold: 0.3   # 余弦相似度低于此值的片段不注入 prompt（过滤无关噪声）
+    # 知识库为空时是否自动灌入 classpath:campus-docs 的示例文档。
+    # 默认 false：删空知识库后重启不会把示例文档复活；需要时在后台点「导入示例库」。
+    seed-on-empty: false
   memory:
     window-size: 10             # 兜底：最多保留的最近消息条数
     max-chars: 4000            # 上下文字符预算：从最近消息往前累加，超出即截断（防超模型上下文）

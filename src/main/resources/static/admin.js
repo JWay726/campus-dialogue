@@ -9,7 +9,9 @@ const api = {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, content })
   }).then(r => r.json()),
-  del:     (id) => authFetch('/api/admin/docs/' + id, { method: 'DELETE' }).then(r => r.json()),
+  del:     (id) => authFetch('/api/admin/docs/' + id, { method: 'DELETE' }).then(okJson),
+  wipeAll: () => authFetch('/api/admin/docs', { method: 'DELETE' }).then(okJson),
+  importSamples: () => authFetch('/api/admin/docs/import-samples', { method: 'POST' }).then(okJson),
   reindex: () => authFetch('/api/docs/reindex', { method: 'POST' }).then(r => r.json()),
   status:  () => authFetch('/api/docs/status').then(r => r.json()),
   upload:  (files) => {
@@ -17,7 +19,7 @@ const api = {
     for (const f of files) form.append('files', f, f.name);
     return authFetch('/api/docs/upload', { method: 'POST', body: form })
       .then(r => {
-        if (!r.ok) return r.json().then(o => { throw new Error(o.error || ('HTTP ' + r.status)); });
+        if (!r.ok) return r.json().then(o => { throw new Error(o.message || o.error || ('HTTP ' + r.status)); });
         return r.json();
       });
   },
@@ -33,6 +35,15 @@ async function authFetch(url, opts = {}) {
   const res = await fetch(url, { credentials: 'same-origin', ...opts });
   if (res.status === 401) { location.href = '/login.html?from=/admin.html'; throw new Error('未登录'); }
   return res;
+}
+
+/** 读取 JSON 并按 HTTP 状态判定成功/失败，失败时把后端 message 抛给调用方（避免「看着成功其实没删」）。 */
+async function okJson(res) {
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.message || body.error || ('HTTP ' + res.status));
+  }
+  return body;
 }
 
 const $ = (s) => document.querySelector(s);
@@ -198,7 +209,7 @@ async function save() {
                           : await api.create(title, content);
     currentId = res.id;
     deleteBtn.hidden = false;
-    saveHint.textContent = '已保存，记得点“重建索引”让检索生效';
+    saveHint.textContent = '已保存，该文档索引已更新';
     await refreshList();
   } catch (e) {
     if (e.message !== '未登录') saveHint.textContent = '保存失败：' + e.message;
@@ -210,19 +221,57 @@ async function del() {
   const d = docs.find(x => x.id === currentId);
   const ok = await Dialog.confirm({
     title: '删除文档',
-    message: `确认删除《${d ? (d.title || '未命名') : '该文档'}》？删除后需要重新“重建索引”。`,
+    message: `确认删除《${d ? (d.title || '未命名') : '该文档'}》？该文档的索引片段会一并清除，立即不再参与问答。`,
     okText: '删除',
     cancelText: '取消',
     danger: true
   });
   if (!ok) return;
   try {
-    await api.del(currentId);
+    const r = await api.del(currentId);
     newDoc();
     await refreshList();
-    toast('文档已删除');
+    await refreshStatus();
+    toast(`已删除，同时清理 ${r.vectorsCleared ?? 0} 个索引片段${r.documents === 0 ? '（知识库已空）' : ''}`);
   } catch (e) {
     if (e.message !== '未登录') toast('删除失败：' + e.message);
+  }
+}
+
+/** 清空整个知识库（文档 + 向量片段），用于彻底换一批资料。 */
+async function wipeAll() {
+  const ok = await Dialog.confirm({
+    title: '清空知识库',
+    message: '将删除全部知识库文档及其索引片段，问答将不再引用任何校园资料。此操作不可撤销，建议先确认已备份。',
+    okText: '全部清空',
+    cancelText: '取消',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    const r = await api.wipeAll();
+    newDoc();
+    await refreshList();
+    await refreshStatus();
+    toast(`知识库已清空，删除文档 ${r.documentsDeleted ?? 0} 篇`);
+  } catch (e) {
+    if (e.message !== '未登录') toast('清空失败：' + e.message);
+  }
+}
+
+/** 手动导入 classpath 内置的示例知识库（同名文件已存在会跳过）。 */
+async function importSamples() {
+  const btn = $('#import-samples');
+  if (btn) { btn.disabled = true; btn.textContent = '导入中…'; }
+  try {
+    const r = await api.importSamples();
+    await refreshList();
+    await refreshStatus();
+    toast(`已导入示例文档 ${r.imported ?? 0} 篇，当前共 ${r.documents ?? 0} 篇`);
+  } catch (e) {
+    if (e.message !== '未登录') toast('导入失败：' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ 导入示例库'; }
   }
 }
 
@@ -246,7 +295,7 @@ async function refreshStatus() {
   try {
     const s = await api.status();
     $('#kb-status').textContent =
-      `片段数 ${s.chunks} · RAG ${s.ragEnabled ? '开启' : '关闭'}`;
+      `文档 ${s.documents ?? 0} 篇 · 片段 ${s.chunks ?? 0} · RAG ${s.ragEnabled ? '开启' : '关闭'}`;
   } catch (e) {
     $('#kb-status').textContent = '状态获取失败';
   }
@@ -387,6 +436,8 @@ fileInput.onchange = async () => {
 };
 $('#save-doc').onclick = save;
 $('#delete-doc').onclick = del;
+$('#wipe-all').onclick = wipeAll;
+$('#import-samples').onclick = importSamples;
 $('#reindex-btn').onclick = reindex;
 $('#logout-btn').onclick = logout;
 $('#new-user-btn').onclick = showUserEditor;

@@ -56,16 +56,24 @@ public class AuthController {
         this.securityContextRepository = securityContextRepository;
     }
 
-    /** 当前登录用户：直接从 SecurityContext 的 principal（UserDetails）读取，未登录由安全链返回 401。 */
+    /**
+     * 当前登录用户：直接从 SecurityContext 的 principal（UserDetails）读取，未登录由安全链返回 401。
+     * 学号单独查一次 users 表：principal 里只有用户名，但前端需要知道「能否用学号登录」。
+     */
     @GetMapping("/me")
     public Mono<ResponseEntity<Map<String, Object>>> me(@AuthenticationPrincipal UserDetails me) {
         if (me == null) {
             return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.<String, Object>of("error", "unauthorized")));
         }
-        return Mono.just(ResponseEntity.ok(Map.<String, Object>of(
-                "username", me.getUsername(),
-                "role", roleOf(me.getAuthorities()))));
+        return Mono.fromCallable(() -> {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("username", me.getUsername());
+            body.put("role", roleOf(me.getAuthorities()));
+            // 用学号登录时 principal 里仍是真实用户名，故这里查出来给前端展示
+            body.put("studentNo", userService.studentNoOf(me.getUsername()).orElse(null));
+            return ResponseEntity.ok(body);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /** 开放注册：默认 USER 角色；成功后返回用户名与角色（不自动登录，引导去登录页）。 */

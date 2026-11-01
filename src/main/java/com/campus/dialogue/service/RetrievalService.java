@@ -7,6 +7,7 @@ import com.campus.dialogue.repository.DocumentRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,19 +41,23 @@ public class RetrievalService {
     /** 检索结果：拼接文本 + 是否命中 + 命中片段数（供前端区分「已检索」与「无相关资料」）。 */
     public record RetrieveResult(String context, boolean hasHit, int count) {}
 
-    /** 从 documents 表全量重建向量库：先清空，再逐篇切分、按文档 docId 并发向量化入库。 */
+    /**
+     * 从 documents 表全量重建向量库：先把所有文档在内存里向量化完成，全部成功后再一次性替换，
+     * 避免「先清空、后失败」把原有索引清空（例如 embedding key 过期时）。
+     */
+    @Transactional
     public int indexAll() {
-        vectorStore.clear();
+        List<DocChunk> fresh = new ArrayList<>();
         for (DocumentEntity d : documentRepository.findAll()) {
             if (d.getContent() == null || d.getContent().isBlank()) {
                 continue;
             }
             String docId = "doc-" + d.getId();
-            List<DocChunk> chunks = embedChunks(split(d.getContent()), docId);
-            for (DocChunk c : chunks) {
-                vectorStore.add(new DocChunk("c" + chunkCounter.incrementAndGet(), c.docId(), c.text(), c.vector()));
+            for (DocChunk c : embedChunks(split(d.getContent()), docId)) {
+                fresh.add(new DocChunk("c" + chunkCounter.incrementAndGet(), c.docId(), c.text(), c.vector()));
             }
         }
+        vectorStore.replaceAll(fresh);
         log.info("知识库重建完成，当前向量片段：{}", vectorStore.size());
         return vectorStore.size();
     }

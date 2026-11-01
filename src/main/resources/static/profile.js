@@ -38,6 +38,8 @@ function render() {
   $('#avatar').textContent = (profile.username || '·').slice(0, 1);
   $('#role-tag').textContent = profile.role === 'ADMIN' ? '管理员' : '普通用户';
   $('#created').textContent = profile.createdAt ? '注册于 ' + fmtTime(profile.createdAt) : '';
+  const nameInput = $('#new-username');
+  if (nameInput) nameInput.placeholder = `当前：${profile.username}（3-32 位，不含空格）`;
 
   const bound = !!profile.studentNo;
   $('#student-bound').hidden = !bound;
@@ -219,6 +221,45 @@ async function handleWechatCallback() {
   }
 }
 
+// ---------------- 用户名 ----------------
+
+async function saveUsername() {
+  const input = $('#new-username');
+  const newUsername = (input.value || '').trim();
+  const password = $('#username-pwd').value;
+  if (!newUsername) { setMsg('#username-msg', '请输入新用户名', false); return; }
+  if (newUsername === profile.username) { setMsg('#username-msg', '新用户名与当前用户名相同', false); return; }
+  if (newUsername.length < 3 || newUsername.length > 32) { setMsg('#username-msg', '用户名长度需为 3-32 位', false); return; }
+  if (/\s/.test(newUsername)) { setMsg('#username-msg', '用户名不能包含空格', false); return; }
+  if (!password) { setMsg('#username-msg', '请输入当前密码以确认身份', false); return; }
+
+  const ok = await Dialog.confirm({
+    title: '修改用户名',
+    message: `用户名将从「${profile.username}」改为「${newUsername}」。`
+      + '密码、学号、微信绑定和历史对话都会保留，之后请用新用户名登录。确定修改？',
+    okText: '确认修改'
+  });
+  if (!ok) return;
+
+  const btn = $('#save-username');
+  btn.disabled = true;
+  try {
+    profile = await api('/api/me/username', {
+      method: 'POST',
+      body: JSON.stringify({ newUsername, password })
+    });
+    input.value = '';
+    $('#username-pwd').value = '';
+    setMsg('#username-msg', `用户名已修改为 ${profile.username}，下次登录请使用新用户名`, true);
+    render();
+  } catch (e) {
+    // 若后端改名成功但登录身份刷新失败会返回 401，api() 已跳登录页，这里不再重复提示
+    setMsg('#username-msg', e.message, false);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ---------------- 修改密码 ----------------
 
 async function savePassword() {
@@ -253,6 +294,10 @@ $('#student-input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); saveStudentNo(); }
 });
 $('#save-pwd').onclick = savePassword;
+$('#save-username').onclick = saveUsername;
+$('#username-pwd').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); saveUsername(); }
+});
 $('#logout-top').onclick = async () => {
   try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }); } catch (e) {}
   location.href = '/login.html';

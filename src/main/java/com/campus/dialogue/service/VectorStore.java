@@ -2,16 +2,21 @@ package com.campus.dialogue.service;
 
 import com.campus.dialogue.entity.VectorEntity;
 import com.campus.dialogue.model.DocChunk;
+import com.campus.dialogue.repository.DocumentRepository;
 import com.campus.dialogue.repository.VectorRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** 轻量向量库：内存检索 + MySQL 持久化（生产可换 Chroma / Milvus / pgvector）。 */
@@ -24,6 +29,13 @@ public class VectorStore {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final List<DocChunk> chunks = new CopyOnWriteArrayList<>();
 
+    /**
+     * 可选注入：用于启动时清理「文档已被删除、但片段还留在库里」的僵尸向量。
+     * 为空时（单元测试直接 new）跳过一致性校验。
+     */
+    @Autowired(required = false)
+    private DocumentRepository documentRepository;
+
     public VectorStore(VectorRepository vectorRepository) {
         this.vectorRepository = vectorRepository;
     }
@@ -32,10 +44,39 @@ public class VectorStore {
     @PostConstruct
     public void loadFromDb() {
         List<VectorEntity> all = vectorRepository.findAll();
+        Set<String> validDocIds = existingDocIds();
         for (VectorEntity e : all) {
-            chunks.add(new DocChunk("v" + e.getId(), e.getDocId(), e.getText(), parseEmbedding(e.getEmbedding())));
+            String docId = e.getDocId();
+            // 文档已被删除、片段却还在库里：不再加载进内存，并从 DB 清掉，避免"删了还能答"。
+            if (validDocIds != null && docId != null && !validDocIds.contains(docId)) {
+                try {
+                    vectorRepository.deleteById(e.getId());
+                    log.info("清理僵尸向量片段 id={}（所属文档 {} 已不存在）", e.getId(), docId);
+                } catch (Exception ex) {
+                    log.warn("僵尸向量片段清理失败 id={}: {}", e.getId(), ex.getMessage());
+                }
+                continue;
+            }
+            chunks.add(new DocChunk("v" + e.getId(), docId, e.getText(), parseEmbedding(e.getEmbedding())));
         }
         log.info("已从数据库加载向量片段：{}", chunks.size());
+    }
+
+    /** 现存文档的 docId 集合（doc-{id}）；无法判断时返回 null，表示不做一致性过滤。 */
+    private Set<String> existingDocIds() {
+        if (documentRepository == null) {
+            return null;
+        }
+        try {
+            Set<String> ids = new HashSet<>();
+            for (Long id : documentRepository.findAllIds()) {
+                ids.add("doc-" + id);
+            }
+            return ids;
+        } catch (Exception e) {
+            log.warn("读取文档 id 列表失败，跳过僵尸片段校验：{}", e.getMessage());
+            return null;
+        }
     }
 
     /** 新增一个向量片段（携带文档维度 docId，供按文档去重）。 */
@@ -49,11 +90,28 @@ public class VectorStore {
         vectorRepository.deleteAll();
     }
 
-    /** 按文档维度删除向量片段（内存 + DB），用于编辑/重建单篇文档时去除旧片段。 */
-    public void removeByDocId(String docId) {
-        if (docId == null) return;
+    /**
+     * 用一批已算好的新片段整体替换现有向量库（内存 + DB）。
+     * 重建索引时先把所有片段向量化完再调用，避免“先清空、后失败”把旧索引清空。
+     */
+    @Transactional
+    public void replaceAll(List<DocChunk> fresh) {
+        chunks.clear();
+        vectorRepository.deleteAll();
+        for (DocChunk c : fresh) {
+            chunks.add(c);
+            vectorRepository.save(new VectorEntity(c.docId(), c.text(), toJson(c.vector())));
+        }
+    }
+
+    /** 按文档维度删除向量片段（内存 + DB），返回内存中移除的片段数。用于编辑/重建/删除单篇文档。 */
+    public int removeByDocId(String docId) {
+        if (docId == null) return 0;
+        int before = chunks.size();
         chunks.removeIf(c -> docId.equals(c.docId()));
+        int removed = before - chunks.size();
         vectorRepository.deleteByDocId(docId);
+        return removed;
     }
 
     public int size() {
